@@ -1,5 +1,10 @@
 import { Command } from 'commander'
 import pkg from '../package.json'
+import { createLoginCommand } from './commands/login'
+import { createLogoutCommand } from './commands/logout'
+import { createOrgCommand } from './commands/org'
+import { createProjectCommand } from './commands/project'
+import { createWhoamiCommand } from './commands/whoami'
 
 export function createProgram(): Command {
   const program = new Command()
@@ -8,7 +13,11 @@ export function createProgram(): Command {
     .description('Deploy Cloudflare Worker bundles to Kodena.')
     .version(pkg.version, '-v, --version', 'output the current CLI version')
 
-  // Commands land in M2+: login, logout, whoami, org, project, deploy.
+  program.addCommand(createLoginCommand())
+  program.addCommand(createLogoutCommand())
+  program.addCommand(createWhoamiCommand())
+  program.addCommand(createOrgCommand())
+  program.addCommand(createProjectCommand())
 
   return program
 }
