@@ -22,6 +22,11 @@ jobs:
           node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
+      # Node 22's bundled npm is 10.x. OIDC trusted publishing for the
+      # actual package PUT requires npm 11.5.1+ — without it, provenance
+      # still mints but the publish auth falls back to NODE_AUTH_TOKEN
+      # (empty in this workflow) and the registry rejects with 404.
+      - run: npm install -g npm@latest
       - run: npm ci
       - run: npm run build
       - name: Create Release PR or Publish
