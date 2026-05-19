@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process'
+import { dirname } from 'node:path'
 import { Command, Option } from 'commander'
 import { apiFetch } from '../lib/api'
 import {
@@ -19,6 +21,8 @@ import {
   requireActiveOrg,
 } from '../lib/resolve'
 
+const DEFAULT_BUILD_COMMAND = 'npx @opennextjs/cloudflare build'
+
 interface DeployOptions {
   slug?: string
   org?: string
@@ -29,6 +33,7 @@ interface DeployOptions {
   compatFlag?: string[]
   compatDate?: string
   dryRun?: boolean
+  build?: boolean
 }
 
 interface DeployResponse {
@@ -64,6 +69,14 @@ export function createDeployCommand(): Command {
       '--dry-run',
       'Run all the work up to the network call, then print a summary and exit.',
     )
+    .option(
+      '--build',
+      "Run kodena.json's `build.command` (or `npx @opennextjs/cloudflare build`) before uploading.",
+    )
+    .option(
+      '--no-build',
+      "Skip the build step even if kodena.json sets `build.runByDefault: true`.",
+    )
     .action(async (options: DeployOptions) => {
       const ctx = await loadContext({
         token: options.token,
@@ -94,6 +107,16 @@ export function createDeployCommand(): Command {
       assertTokenScope(ctx, orgSlug)
 
       const { workerEntry, assetsDir } = resolveBundlePaths(configPath, config)
+
+      const shouldBuild =
+        options.build !== undefined ? options.build : Boolean(config.build?.runByDefault)
+      if (shouldBuild) {
+        const command = config.build?.command ?? DEFAULT_BUILD_COMMAND
+        const projectDir = dirname(configPath)
+        process.stdout.write(`→ Running build: ${command}\n`)
+        await runBuild(command, projectDir)
+        process.stdout.write('✓ Build complete\n')
+      }
 
       const vars = buildVars(config, options.var)
       validateVars(vars)
@@ -151,6 +174,27 @@ export function createDeployCommand(): Command {
         process.stdout.write(`→ Custom hostname: https://${response.custom_hostname}\n`)
       }
     })
+}
+
+/**
+ * Spawn a shell command from the project dir with inherited stdio so the
+ * user sees the build's output live. Resolves on exit code 0; rejects with
+ * a clean message on any non-zero exit.
+ */
+function runBuild(command: string, cwd: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, {
+      cwd,
+      shell: true,
+      stdio: 'inherit',
+    })
+    child.on('error', reject)
+    child.on('exit', (code, signal) => {
+      if (code === 0) return resolve()
+      const detail = signal ? `terminated by signal ${signal}` : `exit code ${code}`
+      reject(new Error(`Build failed (${detail}); not deploying.`))
+    })
+  })
 }
 
 function buildVars(
