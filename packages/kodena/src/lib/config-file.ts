@@ -17,6 +17,7 @@ const BuildSchema = z
 
 export const KodenaConfigSchema = z.object({
   slug: z.string().min(1),
+  name: z.string().min(1).max(64).optional(),
   project: z.string().min(1).optional(),
   build: BuildSchema,
   vars: z.record(VarKey, z.string()).optional(),
