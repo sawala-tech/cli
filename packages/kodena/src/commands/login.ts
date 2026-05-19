@@ -9,7 +9,7 @@ import { TOKEN_PATTERN, writeCredentials } from '../lib/credentials'
 import type { OrgSummary } from './org'
 import type { ProjectRow } from './project'
 
-const TOKENS_PAGE = 'https://sawala.cloud/dashboard/settings'
+const TOKENS_PAGE = 'https://sawala.cloud/dashboard/org/settings'
 
 interface MeResponse {
   id: string
@@ -39,7 +39,7 @@ export function createLoginCommand(): Command {
       const apiBase = resolveApiBase(options.apiBase ?? null)
 
       process.stdout.write(
-        `Open ${TOKENS_PAGE} in your browser, click the 'CLI tokens' tab, mint a token, and paste it here.\n`,
+        `Open ${TOKENS_PAGE} in your browser, open the 'CLI tokens' tab, mint a token, and paste it here.\n`,
       )
 
       if (options.browser !== false && process.stdout.isTTY) {
@@ -51,7 +51,9 @@ export function createLoginCommand(): Command {
         name: 'token',
         message: 'Token (koda_…)',
         validate: (v: string) =>
-          TOKEN_PATTERN.test(v.trim()) ? true : "Doesn't look right — should be koda_ + 32 letters/digits.",
+          TOKEN_PATTERN.test(v.trim())
+            ? true
+            : "Doesn't look right — should be koda_ + 32 letters/digits.",
       })
       if (!token) {
         throw new Error('Login cancelled.')
