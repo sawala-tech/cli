@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process'
 import { dirname } from 'node:path'
 import { Command, Option } from 'commander'
-import { apiFetch } from '../lib/api'
+import { ApiError, apiFetch } from '../lib/api'
+import type { CliContext } from '../lib/resolve'
 import {
   findKodenaConfig,
   readKodenaConfig,
@@ -153,6 +154,12 @@ export function createDeployCommand(): Command {
         return
       }
 
+      await ensureScriptExists(ctx, slug, {
+        name: config.name ?? slug,
+        orgSlug,
+        projectSlug: effectiveProject ?? null,
+      })
+
       const target = `${ctx.apiBase}/kodena/scripts/${slug}/deploy`
       process.stdout.write(`→ Uploading to ${target}\n`)
 
@@ -174,6 +181,38 @@ export function createDeployCommand(): Command {
         process.stdout.write(`→ Custom hostname: https://${response.custom_hostname}\n`)
       }
     })
+}
+
+/**
+ * Probe GET /kodena/scripts/:slug; create it via POST /kodena/scripts on 404.
+ * Matches wrangler's "creates the worker on first deploy" UX. Re-throws any
+ * non-404 GET error so a permissions or network problem surfaces before
+ * we attempt the larger upload.
+ */
+async function ensureScriptExists(
+  ctx: CliContext,
+  slug: string,
+  opts: { name: string; orgSlug: string; projectSlug: string | null },
+): Promise<void> {
+  try {
+    await apiFetch(ctx, `/kodena/scripts/${slug}`, {
+      method: 'GET',
+      orgOverride: opts.orgSlug,
+      projectOverride: opts.projectSlug,
+    })
+    return
+  } catch (e) {
+    if (!(e instanceof ApiError) || e.status !== 404) throw e
+  }
+
+  process.stdout.write(`→ Script '${slug}' does not exist yet; creating it.\n`)
+  await apiFetch(ctx, '/kodena/scripts', {
+    method: 'POST',
+    body: { scriptSlug: slug, name: opts.name },
+    orgOverride: opts.orgSlug,
+    projectOverride: opts.projectSlug,
+  })
+  process.stdout.write(`✓ Created script '${slug}'\n`)
 }
 
 /**

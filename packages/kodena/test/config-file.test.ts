@@ -52,6 +52,7 @@ describe('KodenaConfigSchema', () => {
   it('accepts a fully-populated config', () => {
     const r = KodenaConfigSchema.safeParse({
       slug: 'blog',
+      name: 'My Blog',
       project: 'blog-ssr',
       build: {
         command: 'npx @opennextjs/cloudflare build',
@@ -65,6 +66,11 @@ describe('KodenaConfigSchema', () => {
       compatibilityDate: '2025-04-01',
     })
     expect(r.success).toBe(true)
+  })
+
+  it('rejects a name longer than 64 chars', () => {
+    const r = KodenaConfigSchema.safeParse({ slug: 'x', name: 'a'.repeat(65) })
+    expect(r.success).toBe(false)
   })
 })
 
