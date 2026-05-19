@@ -1,0 +1,53 @@
+{
+  "name": "@sawala/kodena",
+  "version": "0.0.1",
+  "description": "Deploy Cloudflare Worker bundles to Kodena from the terminal.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sawala-tech/cli.git",
+    "directory": "packages/kodena"
+  },
+  "homepage": "https://github.com/sawala-tech/cli/tree/main/packages/kodena#readme",
+  "bugs": {
+    "url": "https://github.com/sawala-tech/cli/issues"
+  },
+  "keywords": [
+    "sawala",
+    "kodena",
+    "cloudflare",
+    "workers",
+    "opennext",
+    "deploy",
+    "cli"
+  ],
+  "bin": {
+    "kodena": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "mime-types": "^2.1.35",
+    "prompts": "^2.4.2",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/mime-types": "^2.1.4",
+    "@types/prompts": "^2.4.9",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
