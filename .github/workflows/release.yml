@@ -19,14 +19,13 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Node 24 ships with npm 11, required for OIDC trusted publishing
+          # of the actual package PUT. Node 22's bundled npm 10 signs
+          # provenance via OIDC but falls back to a (missing) NODE_AUTH_TOKEN
+          # for the upload itself, which the registry rejects with 404.
+          node-version: 24
           cache: npm
           registry-url: https://registry.npmjs.org
-      # Node 22's bundled npm is 10.x. OIDC trusted publishing for the
-      # actual package PUT requires npm 11.5.1+ — without it, provenance
-      # still mints but the publish auth falls back to NODE_AUTH_TOKEN
-      # (empty in this workflow) and the registry rejects with 404.
-      - run: npm install -g npm@latest
       - run: npm ci
       - run: npm run build
       - name: Create Release PR or Publish
