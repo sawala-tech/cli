@@ -8,7 +8,7 @@ export function createLogoutCommand(): Command {
       await deleteCredentials()
       process.stdout.write(`Removed ${credentialsPath()}.\n`)
       process.stdout.write(
-        'To revoke this token server-side, visit https://sawala.cloud/dashboard/settings and use the CLI tokens tab.\n',
+        'To revoke this token server-side, visit https://sawala.cloud/dashboard/org/settings and use the CLI tokens tab.\n',
       )
     })
 }
