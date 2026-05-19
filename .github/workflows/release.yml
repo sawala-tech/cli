@@ -19,7 +19,11 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Node 24 ships with npm 11, required for OIDC trusted publishing
+          # of the actual package PUT. Node 22's bundled npm 10 signs
+          # provenance via OIDC but falls back to a (missing) NODE_AUTH_TOKEN
+          # for the upload itself, which the registry rejects with 404.
+          node-version: 24
           cache: npm
           registry-url: https://registry.npmjs.org
       - run: npm ci
