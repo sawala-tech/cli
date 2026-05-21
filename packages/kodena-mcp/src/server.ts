@@ -2,12 +2,23 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
   ListToolsRequestSchema,
   McpError,
+  ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { loadContext } from './lib/auth'
 import { KodenaErrorCode, toMcpError } from './lib/errors'
 import { logger } from './lib/logger'
+import { getPromptHandler, listPromptsHandler } from './prompts'
+import {
+  listResourceTemplatesHandler,
+  listResourcesHandler,
+  readResourceHandler,
+} from './resources'
 import { ALL_TOOLS, TOOLS_BY_NAME } from './tools'
 import pkg from '../package.json'
 
@@ -81,11 +92,19 @@ export async function callToolHandler(request: {
 export function createServer(): Server {
   const server = new Server(
     { name: 'kodena-mcp', version: pkg.version },
-    { capabilities: { tools: {} } },
+    { capabilities: { tools: {}, resources: {}, prompts: {} } },
   )
 
   server.setRequestHandler(ListToolsRequestSchema, listToolsHandler)
   server.setRequestHandler(CallToolRequestSchema, callToolHandler)
+  server.setRequestHandler(ListResourcesRequestSchema, listResourcesHandler)
+  server.setRequestHandler(
+    ListResourceTemplatesRequestSchema,
+    listResourceTemplatesHandler,
+  )
+  server.setRequestHandler(ReadResourceRequestSchema, readResourceHandler)
+  server.setRequestHandler(ListPromptsRequestSchema, listPromptsHandler)
+  server.setRequestHandler(GetPromptRequestSchema, getPromptHandler)
 
   return server
 }
