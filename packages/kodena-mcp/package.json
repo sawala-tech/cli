@@ -1,0 +1,54 @@
+{
+  "name": "@sawala/kodena-mcp",
+  "version": "0.0.0",
+  "description": "Drive the Kodena API from any MCP-capable AI agent.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sawala-tech/cli.git",
+    "directory": "packages/kodena-mcp"
+  },
+  "homepage": "https://github.com/sawala-tech/cli/tree/main/packages/kodena-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/sawala-tech/cli/issues"
+  },
+  "keywords": [
+    "sawala",
+    "kodena",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "ai-agent"
+  ],
+  "bin": {
+    "kodena-mcp": "./dist/server.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "mime-types": "^2.1.35",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/mime-types": "^2.1.4",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
