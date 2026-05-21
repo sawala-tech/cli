@@ -1,5 +1,11 @@
 # @sawala/kodena
 
+## 0.0.4
+
+### Patch Changes
+
+- 99a5fd8: Add package README with install, quick start, command reference, `kodena.json` schema, and local state paths.
+
 ## 0.0.3
 
 ### Patch Changes
