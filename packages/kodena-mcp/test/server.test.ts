@@ -53,12 +53,12 @@ describe('createServer', () => {
 describe('listToolsHandler', () => {
   it('advertises every registered tool with name/description/inputSchema/annotations', async () => {
     const result = await listToolsHandler()
-    expect(result.tools.length).toBeGreaterThanOrEqual(8)
+    expect(result.tools.length).toBeGreaterThanOrEqual(11)
     for (const tool of result.tools) {
       expect(tool.name).toMatch(/^kodena_/)
       expect(typeof tool.description).toBe('string')
       expect(tool.inputSchema.type).toBe('object')
-      expect(tool.annotations.readOnlyHint).toBe(true)
+      expect(typeof tool.annotations.readOnlyHint).toBe('boolean')
     }
   })
 })

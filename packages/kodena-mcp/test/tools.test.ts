@@ -29,17 +29,22 @@ function mockFetch(response: { status: number; body: unknown }): ReturnType<type
 }
 
 describe('tool registry', () => {
-  it('exposes exactly 8 read-only tools (M2)', () => {
-    expect(ALL_TOOLS).toHaveLength(8)
-    for (const tool of ALL_TOOLS) {
-      expect(tool.annotations.readOnlyHint).toBe(true)
-      expect(tool.annotations.destructiveHint).toBeUndefined()
+  it('exposes 8 read-only (M2) + 3 non-destructive write (M3) tools', () => {
+    expect(ALL_TOOLS).toHaveLength(11)
+    const readOnly = ALL_TOOLS.filter((t) => t.annotations.readOnlyHint === true)
+    const writes = ALL_TOOLS.filter((t) => t.annotations.readOnlyHint === false)
+    expect(readOnly).toHaveLength(8)
+    expect(writes).toHaveLength(3)
+    // Every M3 write must be flagged non-destructive (no M4 destructive tools yet).
+    for (const tool of writes) {
+      expect(tool.annotations.destructiveHint).toBe(false)
     }
   })
 
   it('lookup by name returns each tool', () => {
     expect(TOOLS_BY_NAME.get('kodena_whoami')?.name).toBe('kodena_whoami')
     expect(TOOLS_BY_NAME.get('kodena_list_scripts')?.name).toBe('kodena_list_scripts')
+    expect(TOOLS_BY_NAME.get('kodena_create_script')?.name).toBe('kodena_create_script')
     expect(TOOLS_BY_NAME.get('nonexistent')).toBeUndefined()
   })
 
@@ -241,5 +246,89 @@ describe('kodena_get_custom_domain_status', () => {
     expect(mock.mock.calls[0]?.[0]).toBe(
       'https://api.sawala.cloud/kodena/scripts/my-blog/custom-domain-status',
     )
+  })
+})
+
+describe('kodena_create_script', () => {
+  const tool = TOOLS_BY_NAME.get('kodena_create_script')!
+
+  it('rejects an uppercase slug', () => {
+    expect(() => tool.parseInput({ slug: 'MyBlog' })).toThrow(/lowercase alphanumeric/)
+  })
+
+  it('POSTs { scriptSlug, name } and defaults name to the slug', async () => {
+    const mock = mockFetch({ status: 201, body: { slug: 'my-blog' } })
+    await tool.handle(tool.parseInput({ slug: 'my-blog' }), ctx)
+    const [url, init] = mock.mock.calls[0] as unknown as [
+      string,
+      { method: string; body: string },
+    ]
+    expect(url).toBe('https://api.sawala.cloud/kodena/scripts')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({ scriptSlug: 'my-blog', name: 'my-blog' })
+  })
+
+  it('uses an explicit name when provided', async () => {
+    const mock = mockFetch({ status: 201, body: { slug: 'my-blog' } })
+    await tool.handle(tool.parseInput({ slug: 'my-blog', name: 'My Blog' }), ctx)
+    const init = mock.mock.calls[0]?.[1] as { body: string }
+    expect(JSON.parse(init.body)).toEqual({ scriptSlug: 'my-blog', name: 'My Blog' })
+  })
+
+  it('is annotated non-destructive, non-idempotent', () => {
+    expect(tool.annotations.destructiveHint).toBe(false)
+    expect(tool.annotations.idempotentHint).toBe(false)
+  })
+})
+
+describe('kodena_update_script', () => {
+  const tool = TOOLS_BY_NAME.get('kodena_update_script')!
+
+  it('requires at least one updatable field', () => {
+    expect(() => tool.parseInput({ slug: 'my-blog' })).toThrow(/at least one updatable field/)
+  })
+
+  it('PATCHes /kodena/scripts/:slug with the partial body', async () => {
+    const mock = mockFetch({ status: 200, body: { slug: 'my-blog', name: 'New Name' } })
+    await tool.handle(tool.parseInput({ slug: 'my-blog', name: 'New Name' }), ctx)
+    const [url, init] = mock.mock.calls[0] as unknown as [
+      string,
+      { method: string; body: string },
+    ]
+    expect(url).toBe('https://api.sawala.cloud/kodena/scripts/my-blog')
+    expect(init.method).toBe('PATCH')
+    expect(JSON.parse(init.body)).toEqual({ name: 'New Name' })
+  })
+
+  it('is annotated idempotent', () => {
+    expect(tool.annotations.idempotentHint).toBe(true)
+    expect(tool.annotations.destructiveHint).toBe(false)
+  })
+})
+
+describe('kodena_set_org_handle', () => {
+  const tool = TOOLS_BY_NAME.get('kodena_set_org_handle')!
+
+  it('rejects hyphens, uppercase, and over-16-char handles', () => {
+    expect(() => tool.parseInput({ handle: 'has-hyphen' })).toThrow(/lowercase alphanumeric/)
+    expect(() => tool.parseInput({ handle: 'Acme' })).toThrow(/lowercase alphanumeric/)
+    expect(() => tool.parseInput({ handle: 'a'.repeat(17) })).toThrow(/at most 16 chars/)
+  })
+
+  it('PUTs /kodena/org-handle with the handle', async () => {
+    const mock = mockFetch({ status: 200, body: { handle: 'acme' } })
+    await tool.handle(tool.parseInput({ handle: 'acme' }), ctx)
+    const [url, init] = mock.mock.calls[0] as unknown as [
+      string,
+      { method: string; body: string },
+    ]
+    expect(url).toBe('https://api.sawala.cloud/kodena/org-handle')
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body)).toEqual({ handle: 'acme' })
+  })
+
+  it('is annotated idempotent (PUT)', () => {
+    expect(tool.annotations.idempotentHint).toBe(true)
+    expect(tool.annotations.destructiveHint).toBe(false)
   })
 })
