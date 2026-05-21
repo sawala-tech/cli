@@ -1,6 +1,14 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  McpError,
+} from '@modelcontextprotocol/sdk/types.js'
+import { loadContext } from './lib/auth'
+import { KodenaErrorCode, toMcpError } from './lib/errors'
+import { logger } from './lib/logger'
+import { ALL_TOOLS, TOOLS_BY_NAME } from './tools'
 import pkg from '../package.json'
 
 const HELP_TEXT = [
@@ -36,7 +44,39 @@ export function handleArgv(argv: readonly string[]): ArgvResult {
   return { mode: 'serve' }
 }
 
-export const listToolsHandler = async (): Promise<{ tools: [] }> => ({ tools: [] })
+export const listToolsHandler = async () => ({
+  tools: ALL_TOOLS.map((t) => ({
+    name: t.name,
+    description: t.description,
+    inputSchema: t.inputSchema,
+    annotations: t.annotations,
+  })),
+})
+
+export async function callToolHandler(request: {
+  params: { name: string; arguments?: Record<string, unknown> | undefined }
+}): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
+  const { name, arguments: args } = request.params
+
+  const tool = TOOLS_BY_NAME.get(name)
+  if (!tool) {
+    throw new McpError(
+      KodenaErrorCode.InvalidInput,
+      `Unknown tool '${name}'. Call tools/list to see what's available.`,
+    )
+  }
+
+  try {
+    const parsed = tool.parseInput(args ?? {})
+    const ctx = await loadContext()
+    const result = await tool.handle(parsed, ctx)
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    }
+  } catch (err) {
+    throw toMcpError(err)
+  }
+}
 
 export function createServer(): Server {
   const server = new Server(
@@ -45,6 +85,7 @@ export function createServer(): Server {
   )
 
   server.setRequestHandler(ListToolsRequestSchema, listToolsHandler)
+  server.setRequestHandler(CallToolRequestSchema, callToolHandler)
 
   return server
 }
@@ -55,6 +96,7 @@ async function main(): Promise<void> {
     process.stdout.write(result.output + '\n')
     return
   }
+  logger.info(`starting kodena-mcp ${pkg.version} (${ALL_TOOLS.length} tools)`)
   const server = createServer()
   const transport = new StdioServerTransport()
   await server.connect(transport)
@@ -62,7 +104,9 @@ async function main(): Promise<void> {
 
 if (require.main === module) {
   main().catch((err: unknown) => {
-    process.stderr.write(`kodena-mcp: fatal: ${err instanceof Error ? err.message : String(err)}\n`)
+    process.stderr.write(
+      `kodena-mcp: fatal: ${err instanceof Error ? err.message : String(err)}\n`,
+    )
     process.exit(1)
   })
 }
