@@ -6,6 +6,8 @@ import type { CliContext } from '../lib/auth'
  * to the host. See the MCP spec's "tool annotations" section.
  *
  * Hosts use these as UX hints; they do not enforce semantics.
+ * `irreversibleHint` is non-standard (the spec defines only the five
+ * fields above it); hosts that don't recognise it ignore it.
  */
 export interface ToolAnnotations {
   title?: string
@@ -13,6 +15,7 @@ export interface ToolAnnotations {
   destructiveHint?: boolean
   idempotentHint?: boolean
   openWorldHint?: boolean
+  irreversibleHint?: boolean
 }
 
 /**
