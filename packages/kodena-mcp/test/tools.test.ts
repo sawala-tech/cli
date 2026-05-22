@@ -125,7 +125,7 @@ describe('kodena_list_orgs', () => {
 describe('kodena_list_projects', () => {
   const tool = TOOLS_BY_NAME.get('kodena_list_projects')!
 
-  it('calls /projects?limit=100 and surfaces nextCursor', async () => {
+  it('calls /cli/organization/projects?limit=100 and surfaces nextCursor', async () => {
     const mock = mockFetch({
       status: 200,
       body: {
@@ -145,7 +145,7 @@ describe('kodena_list_projects', () => {
       projects: Array<{ slug: string; isActive: boolean }>
       nextCursor: null
     }
-    expect(mock.mock.calls[0]?.[0]).toBe('https://api.sawala.cloud/projects?limit=100')
+    expect(mock.mock.calls[0]?.[0]).toBe('https://api.sawala.cloud/cli/organization/projects?limit=100')
     expect(result.projects[0]?.isActive).toBe(true)
     expect(result.nextCursor).toBeNull()
   })

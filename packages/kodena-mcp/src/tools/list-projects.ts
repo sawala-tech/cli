@@ -31,7 +31,7 @@ export const listProjectsTool: ToolDefinition<Record<string, never>> = {
   annotations: { title: 'List projects', readOnlyHint: true },
   parseInput: emptyInputParser,
   async handle(_input: Record<string, never>, ctx: CliContext) {
-    const result = await apiFetch<PaginatedProjects>(ctx, '/projects?limit=100')
+    const result = await apiFetch<PaginatedProjects>(ctx, '/cli/organization/projects?limit=100')
     return {
       activeOrg: ctx.activeOrg,
       activeProject: ctx.activeProject,
