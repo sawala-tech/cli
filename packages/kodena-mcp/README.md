@@ -132,7 +132,7 @@ the `kodena://config` resource.
 | `kodena_whoami` | `GET /me` | Identity + active org/project context |
 | `kodena_list_orgs` | `GET /me/orgs` | Memberships, with active + scope flags |
 | `kodena_list_projects` | `GET /projects` | Projects in the active org |
-| `kodena_list_scripts` | `GET /kodena/scripts` | Scripts in the active org, with resolved public URLs |
+| `kodena_list_scripts` | `GET /kodena/scripts` | Scripts in the active org AND active project, with resolved public URLs |
 | `kodena_get_script` | `GET /kodena/scripts/:slug` | Single script's full row |
 | `kodena_check_slug_available` | `GET /kodena/scripts/slug-available` | Availability check before create |
 | `kodena_get_org_handle` | `GET /kodena/org-handle` | Active org's claimed handle, or null |

@@ -211,9 +211,55 @@ describe('kodena_get_script', () => {
   })
 
   it('URL-encodes the slug', async () => {
-    const mock = mockFetch({ status: 200, body: { slug: 'my blog' } })
+    const mock = mockFetch({ status: 200, body: { script_slug: 'my blog', org_handle: 'acme' } })
     await tool.handle(tool.parseInput({ slug: 'my blog' }), ctx)
     expect(mock.mock.calls[0]?.[0]).toBe('https://api.sawala.cloud/kodena/scripts/my%20blog')
+  })
+
+  it('maps snake_case fields and strips project_slug / project_id', async () => {
+    mockFetch({
+      status: 200,
+      body: {
+        id: 'scr_1',
+        org_id: 'org_1',
+        org_slug: 'acme',
+        org_handle: 'acme',
+        // The backend stores these — they have been observed to hold the
+        // script slug instead of the real project slug. The MCP must not
+        // surface them, so the LLM cannot quote a misleading value.
+        project_id: 'wrong',
+        project_slug: 'ssr',
+        script_slug: 'ssr',
+        name: 'SSR Demo',
+        custom_hostname: null,
+        kind: 'worker-bundle',
+        script_content: '/* bundle */',
+        assets_manifest: '[]',
+        assets_manifest_parsed: [],
+        worker_module_size: 12345,
+        vars_parsed: { FOO: 'bar' },
+        compatibility_flags_parsed: ['nodejs_compat'],
+        compatibility_date: '2025-10-08',
+        tenant_subdomain: 'ssr-acme',
+        dispatched_name: 'acme--ssr',
+        created_on: '2026-05-01T00:00:00.000Z',
+        modified_on: '2026-05-20T00:00:00.000Z',
+      },
+    })
+    const result = (await tool.handle(tool.parseInput({ slug: 'ssr' }), ctx)) as Record<
+      string,
+      unknown
+    >
+    expect(result.slug).toBe('ssr')
+    expect(result.orgHandle).toBe('acme')
+    expect(result.url).toBe('https://ssr-acme.kodena.id')
+    expect(result.workerModuleSize).toBe(12345)
+    expect(result.vars).toEqual({ FOO: 'bar' })
+    expect(result.compatibilityFlags).toEqual(['nodejs_compat'])
+    expect(result).not.toHaveProperty('project_slug')
+    expect(result).not.toHaveProperty('project_id')
+    expect(result).not.toHaveProperty('projectSlug')
+    expect(result).not.toHaveProperty('projectId')
   })
 })
 
