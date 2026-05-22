@@ -154,47 +154,48 @@ describe('kodena_list_projects', () => {
 describe('kodena_list_scripts', () => {
   const tool = TOOLS_BY_NAME.get('kodena_list_scripts')!
 
-  it('resolves the public URL: custom hostname wins over tenant subdomain', async () => {
+  it('maps snake_case backend fields and resolves the public URL', async () => {
     mockFetch({
       status: 200,
       body: [
         {
-          slug: 'a',
-          orgHandle: 'acme',
-          tenantSubdomain: 'a-acme',
-          customHostname: 'acme.com',
+          script_slug: 'a',
+          org_handle: 'acme',
+          tenant_subdomain: 'a-acme',
+          custom_hostname: 'acme.com',
           kind: 'worker-bundle',
-          createdAt: '',
-          updatedAt: '',
+          created_on: '2026-05-01T00:00:00.000Z',
+          modified_on: '2026-05-10T00:00:00.000Z',
         },
         {
-          slug: 'b',
-          orgHandle: 'acme',
-          tenantSubdomain: 'b-acme',
-          customHostname: null,
+          script_slug: 'b',
+          org_handle: 'acme',
+          tenant_subdomain: 'b-acme',
+          custom_hostname: null,
           kind: 'assets',
-          createdAt: '',
-          updatedAt: '',
-        },
-        {
-          slug: 'c',
-          orgHandle: 'acme',
-          tenantSubdomain: null,
-          customHostname: null,
-          kind: 'worker-bundle',
-          createdAt: '',
-          updatedAt: '',
+          created_on: '2026-05-02T00:00:00.000Z',
+          modified_on: '2026-05-11T00:00:00.000Z',
         },
       ],
     })
     const result = (await tool.handle(tool.parseInput({}), ctx)) as {
       count: number
-      scripts: Array<{ slug: string; url: string | null }>
+      scripts: Array<{
+        slug: string
+        url: string
+        customHostname: string | null
+        createdAt: string
+        updatedAt: string
+      }>
     }
-    expect(result.count).toBe(3)
+    expect(result.count).toBe(2)
+    expect(result.scripts[0]?.slug).toBe('a')
     expect(result.scripts[0]?.url).toBe('https://acme.com')
+    expect(result.scripts[0]?.customHostname).toBe('acme.com')
+    expect(result.scripts[0]?.updatedAt).toBe('2026-05-10T00:00:00.000Z')
+    expect(result.scripts[1]?.slug).toBe('b')
     expect(result.scripts[1]?.url).toBe('https://b-acme.kodena.id')
-    expect(result.scripts[2]?.url).toBe('https://c-acme.kodena.id')
+    expect(result.scripts[1]?.customHostname).toBeNull()
   })
 })
 
