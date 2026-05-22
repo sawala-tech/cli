@@ -26,7 +26,12 @@ export const listProjectsTool: ToolDefinition<Record<string, never>> = {
     'of scripts; it controls which `x-project-id` subsequent calls send. Use this when ' +
     'the user asks "what projects do I have" or before switching project context. ' +
     'Requires an active org (set via `kodena org use` or the KODENA_ORG env var). ' +
-    'Takes no input.',
+    'Takes no input. ' +
+    'To switch the active project for subsequent tool calls, either (a) run ' +
+    '`kodena project use <slug>` in a shell — safe, local-only write to ' +
+    '~/.kodena/config, picked up on the next tool call without restarting the host; ' +
+    'or (b) restart the MCP host with `KODENA_PROJECT=<slug>` in the server env. ' +
+    'Prefer (a) when a shell is available; use (b) for shell-less hosts.',
   inputSchema: EMPTY_INPUT_SCHEMA,
   annotations: { title: 'List projects', readOnlyHint: true },
   parseInput: emptyInputParser,
