@@ -346,3 +346,363 @@ describe('sawala kontena entry get', () => {
     expect(JSON.parse(cap.lines.join(''))).toEqual(entry)
   })
 })
+
+describe('sawala kontena schema create / update / delete', () => {
+  it('create POSTs the parsed --file body to /schemas', async () => {
+    const filePath = join(tmpDir, 'schema.json')
+    const body = {
+      name: 'Posts',
+      type: 'collection',
+      fields: [{ name: 'title', type: 'text', required: true }],
+    }
+    await fs.writeFile(filePath, JSON.stringify(body), 'utf8')
+    const created = { id: 'sch_1', slug: 'posts', ...body }
+    const fetchMock = vi.fn(async () => jsonResponse(created, 201))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'schema',
+      'create',
+      '--file',
+      filePath,
+    ])
+    cap.restore()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe(`${API_BASE}/cli/kontena/projects/${PROJECT_ID}/schemas`)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual(body)
+    expect(JSON.parse(cap.lines.join(''))).toEqual(created)
+  })
+
+  it('create with --data parses inline JSON and POSTs without touching the filesystem', async () => {
+    const body = { name: 'Posts', type: 'collection', fields: [] }
+    const fetchMock = vi.fn(async () => jsonResponse({ id: 'sch_1', ...body }, 201))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'schema',
+      'create',
+      '--data',
+      JSON.stringify(body),
+    ])
+    cap.restore()
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(init.body as string)).toEqual(body)
+  })
+
+  it('create --dry-run prints the would-be request without calling fetch', async () => {
+    const body = { name: 'Posts', type: 'collection', fields: [] }
+    const fetchMock = vi.fn(async () => jsonResponse({}, 200))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'schema',
+      'create',
+      '--data',
+      JSON.stringify(body),
+      '--dry-run',
+    ])
+    cap.restore()
+    expect(fetchMock).not.toHaveBeenCalled()
+    const out = JSON.parse(cap.lines.join(''))
+    expect(out.wouldSend).toEqual({ method: 'POST', body })
+  })
+
+  it('create errors when neither --file nor --data is provided', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({}, 200))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(
+      createProgram().parseAsync(['node', 'sawala', 'kontena', 'schema', 'create']),
+    ).rejects.toThrow(/--file <path> or --data <json>/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('update PUTs to /schemas/<slug> with the parsed body', async () => {
+    const body = { name: 'Updated Posts', type: 'collection', fields: [] }
+    const updated = { id: 'sch_1', slug: 'posts', ...body }
+    const fetchMock = vi.fn(async () => jsonResponse(updated))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'schema',
+      'update',
+      'posts',
+      '--data',
+      JSON.stringify(body),
+    ])
+    cap.restore()
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe(`${API_BASE}/cli/kontena/projects/${PROJECT_ID}/schemas/posts`)
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body as string)).toEqual(body)
+  })
+
+  it('delete with --yes skips the prompt and DELETEs', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ deleted: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'schema',
+      'delete',
+      'posts',
+      '--yes',
+    ])
+    cap.restore()
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe(`${API_BASE}/cli/kontena/projects/${PROJECT_ID}/schemas/posts`)
+    expect(init.method).toBe('DELETE')
+    expect(JSON.parse(cap.lines.join(''))).toEqual({ deleted: true })
+  })
+
+  it('delete without --yes in non-TTY refuses to run', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ deleted: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    Object.defineProperty(process.stdin, 'isTTY', { configurable: true, value: false })
+    try {
+      await expect(
+        createProgram().parseAsync(['node', 'sawala', 'kontena', 'schema', 'delete', 'posts']),
+      ).rejects.toThrow(/Refusing destructive operation without --yes/)
+    } finally {
+      Object.defineProperty(process.stdin, 'isTTY', { configurable: true, value: undefined })
+    }
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('sawala kontena entry create / update / delete', () => {
+  function collectionSchemaResponse(): Response {
+    return jsonResponse({
+      id: 'sch_1',
+      documentId: 'doc_1',
+      slug: 'posts',
+      name: 'Posts',
+      type: 'collection',
+    })
+  }
+
+  function singleSchemaResponse(): Response {
+    return jsonResponse({
+      id: 'sch_2',
+      documentId: 'doc_2',
+      slug: 'site-settings',
+      name: 'Site Settings',
+      type: 'single',
+    })
+  }
+
+  it('create against a collection schema POSTs to /content/collection/<slug>', async () => {
+    const entry = { slug: 'hello', locale: 'en', data: { title: 'Hi' } }
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/posts')) return collectionSchemaResponse()
+      return jsonResponse({ id: 'ent_1', ...entry }, 201)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'entry',
+      'create',
+      'posts',
+      '--data',
+      JSON.stringify(entry),
+    ])
+    cap.restore()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const [url2, init2] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
+    expect(url2).toBe(
+      `${API_BASE}/cli/kontena/projects/${PROJECT_ID}/content/collection/posts`,
+    )
+    expect(init2.method).toBe('POST')
+    expect(JSON.parse(init2.body as string)).toEqual(entry)
+  })
+
+  it('create against a single-type schema POSTs to /content/single/<slug>', async () => {
+    const entry = { locale: 'en', data: { siteTitle: 'Sawala' } }
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/site-settings')) return singleSchemaResponse()
+      return jsonResponse({ id: 'ent_1', ...entry }, 201)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'entry',
+      'create',
+      'site-settings',
+      '--data',
+      JSON.stringify(entry),
+    ])
+    cap.restore()
+    const [url2] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
+    expect(url2).toBe(
+      `${API_BASE}/cli/kontena/projects/${PROJECT_ID}/content/single/site-settings`,
+    )
+  })
+
+  it('create --publish injects status=published into the body', async () => {
+    const entry = { slug: 'hello', locale: 'en', data: { title: 'Hi' } }
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/posts')) return collectionSchemaResponse()
+      return jsonResponse({ id: 'ent_1', ...entry, status: 'published' }, 201)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'entry',
+      'create',
+      'posts',
+      '--data',
+      JSON.stringify(entry),
+      '--publish',
+    ])
+    cap.restore()
+    const [, init] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
+    const sent = JSON.parse(init.body as string) as Record<string, unknown>
+    expect(sent.status).toBe('published')
+    expect(sent.slug).toBe('hello')
+  })
+
+  it('update PUTs to /content/collection/<slug>/<id> for collection schemas', async () => {
+    const patch = { data: { title: 'Updated' } }
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/posts')) return collectionSchemaResponse()
+      return jsonResponse({ id: 'ent_1', ...patch })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'entry',
+      'update',
+      'posts',
+      'hello',
+      '--data',
+      JSON.stringify(patch),
+    ])
+    cap.restore()
+    const [url2, init2] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
+    expect(url2).toBe(
+      `${API_BASE}/cli/kontena/projects/${PROJECT_ID}/content/collection/posts/hello`,
+    )
+    expect(init2.method).toBe('PUT')
+  })
+
+  it('delete on collection DELETEs /content/collection/<slug>/<id>', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/posts')) return collectionSchemaResponse()
+      return jsonResponse({ deleted: true })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'entry',
+      'delete',
+      'posts',
+      'hello',
+      '--yes',
+    ])
+    cap.restore()
+    const [url2, init2] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
+    expect(url2).toBe(
+      `${API_BASE}/cli/kontena/projects/${PROJECT_ID}/content/collection/posts/hello`,
+    )
+    expect(init2.method).toBe('DELETE')
+  })
+
+  it('delete on single-type with --locale appends ?locale=', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/site-settings')) return singleSchemaResponse()
+      return jsonResponse({ deleted: true })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'entry',
+      'delete',
+      'site-settings',
+      'ignored',
+      '--locale',
+      'en',
+      '--yes',
+    ])
+    cap.restore()
+    const [url2] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
+    expect(url2).toBe(
+      `${API_BASE}/cli/kontena/projects/${PROJECT_ID}/content/single/site-settings?locale=en`,
+    )
+  })
+})
+
+describe('sawala kontena entry publish / unpublish', () => {
+  it('publish PUTs body={status:"published"} to the collection entry path', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ id: 'ent_1', status: 'published' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'entry',
+      'publish',
+      'posts',
+      'hello',
+    ])
+    cap.restore()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe(
+      `${API_BASE}/cli/kontena/projects/${PROJECT_ID}/content/collection/posts/hello`,
+    )
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body as string)).toEqual({ status: 'published' })
+  })
+
+  it('unpublish PUTs body={status:"draft"} to the collection entry path', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ id: 'ent_1', status: 'draft' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'entry',
+      'unpublish',
+      'posts',
+      'hello',
+    ])
+    cap.restore()
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(init.body as string)).toEqual({ status: 'draft' })
+  })
+})
