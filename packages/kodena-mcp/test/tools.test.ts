@@ -1,5 +1,5 @@
 import { promises as fs } from 'node:fs'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -354,7 +354,7 @@ describe('kodena_deploy_script', () => {
     const workerPath = join(dir, 'worker.js')
     const assetsDir = join(dir, 'assets')
     writeFileSync(workerPath, 'export default { fetch() { return new Response("hi") } }')
-    fs.mkdir(assetsDir, { recursive: true })
+    mkdirSync(assetsDir, { recursive: true })
     return { dir, workerPath, assetsDir }
   }
 
