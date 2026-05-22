@@ -5,6 +5,7 @@ import { createLoginCommand } from './commands/login'
 import { createLogoutCommand } from './commands/logout'
 import { createOrgCommand } from './commands/org'
 import { createProjectCommand } from './commands/project'
+import { createScriptCommand } from './commands/script'
 import { createWhoamiCommand } from './commands/whoami'
 
 export function createProgram(): Command {
@@ -19,6 +20,7 @@ export function createProgram(): Command {
   program.addCommand(createWhoamiCommand())
   program.addCommand(createOrgCommand())
   program.addCommand(createProjectCommand())
+  program.addCommand(createScriptCommand())
   program.addCommand(createDeployCommand())
 
   return program
