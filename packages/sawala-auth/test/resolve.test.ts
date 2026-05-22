@@ -12,6 +12,7 @@ import {
   loadContext,
   requireActiveOrg,
   requireActiveProject,
+  requireActiveProjectId,
 } from '../src/resolve'
 
 const VALID_TOKEN = 'koda_ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
@@ -119,7 +120,11 @@ describe.each([KODENA_BRAND, SAWALA_BRAND] as Brand[])(
 
       it(`precedence: --org > ${brand.orgEnvVar} > config`, async () => {
         process.env[brand.orgEnvVar] = 'from-env'
-        await writeConfig(brand, { activeOrg: 'from-config', activeProject: null })
+        await writeConfig(brand, {
+          activeOrg: 'from-config',
+          activeProject: null,
+          activeProjectId: null,
+        })
 
         expect((await loadContext(brand, { org: 'from-flag' })).activeOrg).toBe('from-flag')
         expect((await loadContext(brand)).activeOrg).toBe('from-env')
@@ -130,7 +135,11 @@ describe.each([KODENA_BRAND, SAWALA_BRAND] as Brand[])(
 
       it(`precedence: --project > ${brand.projectEnvVar} > config`, async () => {
         process.env[brand.projectEnvVar] = 'from-env'
-        await writeConfig(brand, { activeOrg: null, activeProject: 'from-config' })
+        await writeConfig(brand, {
+          activeOrg: null,
+          activeProject: 'from-config',
+          activeProjectId: null,
+        })
 
         expect((await loadContext(brand, { project: 'from-flag' })).activeProject).toBe(
           'from-flag',
@@ -144,6 +153,27 @@ describe.each([KODENA_BRAND, SAWALA_BRAND] as Brand[])(
         const ctx = await loadContext(brand)
         expect(ctx.activeOrg).toBeNull()
         expect(ctx.activeProject).toBeNull()
+        expect(ctx.activeProjectId).toBeNull()
+      })
+
+      it('exposes activeProjectId from config', async () => {
+        await writeConfig(brand, {
+          activeOrg: 'acme',
+          activeProject: 'blog',
+          activeProjectId: 'proj_01abc',
+        })
+        const ctx = await loadContext(brand)
+        expect(ctx.activeProjectId).toBe('proj_01abc')
+      })
+
+      it('defaults activeProjectId to null when not in config', async () => {
+        await writeConfig(brand, {
+          activeOrg: 'acme',
+          activeProject: 'blog',
+          activeProjectId: null,
+        })
+        const ctx = await loadContext(brand)
+        expect(ctx.activeProjectId).toBeNull()
       })
     })
   },
@@ -157,6 +187,7 @@ describe.each([KODENA_BRAND, SAWALA_BRAND] as Brand[])(
       apiBase: 'https://api.sawala.cloud',
       activeOrg: 'acme' as string | null,
       activeProject: null as string | null,
+      activeProjectId: null as string | null,
       scopeOrgId: 'org_acme' as string | null,
       scopeOrgSlug: 'acme' as string | null,
       tokenSource: 'file' as const,
@@ -201,6 +232,7 @@ describe.each([KODENA_BRAND, SAWALA_BRAND] as Brand[])(
       apiBase: 'https://api.sawala.cloud',
       activeOrg: null,
       activeProject: null,
+      activeProjectId: null,
       scopeOrgId: null,
       scopeOrgSlug: null,
       tokenSource: 'file' as const,
@@ -224,6 +256,18 @@ describe.each([KODENA_BRAND, SAWALA_BRAND] as Brand[])(
 
     it('requireActiveProject returns the slug when set', () => {
       expect(requireActiveProject({ ...ctxNoOrg, activeProject: 'blog' }, brand)).toBe('blog')
+    })
+
+    it(`requireActiveProjectId throws with brand-specific message when missing`, () => {
+      expect(() => requireActiveProjectId(ctxNoOrg, brand)).toThrow(
+        new RegExp(`${brand.name} project use`),
+      )
+    })
+
+    it('requireActiveProjectId returns the id when set', () => {
+      expect(
+        requireActiveProjectId({ ...ctxNoOrg, activeProjectId: 'proj_01abc' }, brand),
+      ).toBe('proj_01abc')
     })
   },
 )

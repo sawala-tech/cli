@@ -123,6 +123,7 @@ export function createLoginCommand(): Command {
 
       // Pick the active project (only if we have an active org).
       let activeProject: string | null = null
+      let activeProjectId: string | null = null
       if (activeOrg) {
         const projRes = await fetch(`${apiBase}/cli/organization/projects?limit=100`, {
           headers: {
@@ -134,6 +135,7 @@ export function createLoginCommand(): Command {
           const { items } = (await projRes.json()) as PaginatedProjects
           if (items.length === 1) {
             activeProject = items[0]!.slug
+            activeProjectId = items[0]!.id
             process.stdout.write(`Active project: ${activeProject}\n`)
           } else if (items.length > 1) {
             const { picked } = await prompts({
@@ -145,6 +147,8 @@ export function createLoginCommand(): Command {
             })
             if (picked) {
               activeProject = String(picked)
+              const match = items.find((p) => p.slug === activeProject)
+              activeProjectId = match?.id ?? null
               process.stdout.write(`Active project: ${activeProject}\n`)
             }
           } else {
@@ -155,7 +159,7 @@ export function createLoginCommand(): Command {
         }
       }
 
-      await updateConfig(SAWALA_BRAND, { activeOrg, activeProject })
+      await updateConfig(SAWALA_BRAND, { activeOrg, activeProject, activeProjectId })
     })
 }
 

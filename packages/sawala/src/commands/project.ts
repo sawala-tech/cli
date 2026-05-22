@@ -70,7 +70,7 @@ export function createProjectCommand(): Command {
         )
       }
 
-      await updateConfig(SAWALA_BRAND, { activeProject: slug })
+      await updateConfig(SAWALA_BRAND, { activeProject: slug, activeProjectId: match.id })
       process.stdout.write(`Active project: ${slug}\n`)
     })
 

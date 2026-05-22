@@ -7,11 +7,25 @@ import { configDir } from './paths'
 const ConfigSchema = z.object({
   activeOrg: z.string().nullable(),
   activeProject: z.string().nullable(),
+  // `.default(null)` keeps backwards-compatibility: configs written before this
+  // field existed (only `activeOrg` + `activeProject`) still parse cleanly.
+  activeProjectId: z.string().nullable().default(null),
 })
 
-export type Config = z.infer<typeof ConfigSchema>
+/**
+ * `Config` uses the schema's *input* shape so legacy callers that only know
+ * about `activeOrg` + `activeProject` can still call `writeConfig` without
+ * specifying `activeProjectId`. `readConfig` always returns the output shape
+ * (the field defaulted to `null`), which is a strict subset of the input
+ * type, so downstream code can treat `ctx.activeProjectId` as `string | null`.
+ */
+export type Config = z.input<typeof ConfigSchema>
 
-const EMPTY_CONFIG: Config = { activeOrg: null, activeProject: null }
+const EMPTY_CONFIG: z.output<typeof ConfigSchema> = {
+  activeOrg: null,
+  activeProject: null,
+  activeProjectId: null,
+}
 
 export function configPath(brand: Brand): string {
   return join(configDir(brand), 'config')

@@ -20,6 +20,7 @@ export {
   loadContext,
   requireActiveOrg,
   requireActiveProject,
+  requireActiveProjectId,
   assertTokenScope,
   NotLoggedInError,
   TokenScopeMismatchError,

@@ -11,6 +11,7 @@ const ctx: CliContext = {
   apiBase: 'https://api.sawala.cloud',
   activeOrg: 'acme',
   activeProject: 'blog',
+  activeProjectId: null,
   scopeOrgId: null,
   scopeOrgSlug: null,
   tokenSource: 'file',

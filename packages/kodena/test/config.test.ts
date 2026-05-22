@@ -21,19 +21,35 @@ afterEach(async () => {
 
 describe('config', () => {
   it('returns empty config when no file exists', async () => {
-    expect(await readConfig()).toEqual({ activeOrg: null, activeProject: null })
+    expect(await readConfig()).toEqual({
+      activeOrg: null,
+      activeProject: null,
+      activeProjectId: null,
+    })
   })
 
   it('round-trips writes', async () => {
     await writeConfig({ activeOrg: 'acme', activeProject: 'blog' })
-    expect(await readConfig()).toEqual({ activeOrg: 'acme', activeProject: 'blog' })
+    expect(await readConfig()).toEqual({
+      activeOrg: 'acme',
+      activeProject: 'blog',
+      activeProjectId: null,
+    })
   })
 
   it('updateConfig merges partial updates', async () => {
     await writeConfig({ activeOrg: 'acme', activeProject: null })
     const next = await updateConfig({ activeProject: 'blog' })
-    expect(next).toEqual({ activeOrg: 'acme', activeProject: 'blog' })
-    expect(await readConfig()).toEqual({ activeOrg: 'acme', activeProject: 'blog' })
+    expect(next).toEqual({
+      activeOrg: 'acme',
+      activeProject: 'blog',
+      activeProjectId: null,
+    })
+    expect(await readConfig()).toEqual({
+      activeOrg: 'acme',
+      activeProject: 'blog',
+      activeProjectId: null,
+    })
   })
 
   it('updateConfig clears a field when null is explicitly passed', async () => {

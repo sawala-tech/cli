@@ -19,6 +19,13 @@ export interface CliContext {
   activeOrg: string | null
   /** Active project slug; null if none has been set. */
   activeProject: string | null
+  /**
+   * Active project's stable ULID, persisted by `<brand> project use <slug>`.
+   * Required by services (e.g. Kontena) whose URL path takes the project id
+   * rather than the slug. Null for older configs written before this field
+   * existed — call `requireActiveProjectId` to surface a clear recovery hint.
+   */
+  activeProjectId: string | null
   /** Cached from credentials when login wrote them; null if token is all-orgs or came from a non-file source. */
   scopeOrgId: string | null
   scopeOrgSlug: string | null
@@ -109,12 +116,16 @@ export async function loadContext(
   const activeOrg = options.org ?? process.env[brand.orgEnvVar] ?? config.activeOrg ?? null
   const activeProject =
     options.project ?? process.env[brand.projectEnvVar] ?? config.activeProject ?? null
+  // No env-var equivalent: the project id is always derived from the slug at
+  // `project use` time and persisted into the config alongside it.
+  const activeProjectId = config.activeProjectId ?? null
 
   return {
     token,
     apiBase,
     activeOrg,
     activeProject,
+    activeProjectId,
     scopeOrgId,
     scopeOrgSlug,
     tokenSource,
@@ -161,4 +172,19 @@ export function requireActiveProject(ctx: CliContext, brand: Brand): string {
     )
   }
   return ctx.activeProject
+}
+
+/**
+ * Require the active project's ULID. Throws if none is set.
+ *
+ * Older configs (and current kodena configs) only persist the slug, so the
+ * recovery path is to re-run `project use` — which now refreshes both fields.
+ */
+export function requireActiveProjectId(ctx: CliContext, brand: Brand): string {
+  if (!ctx.activeProjectId) {
+    throw new Error(
+      `No active project id. Re-run \`${brand.name} project use <slug>\` to refresh.`,
+    )
+  }
+  return ctx.activeProjectId
 }

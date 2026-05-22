@@ -57,9 +57,21 @@ describe('listToolsHandler', () => {
     expect(names).toContain('sawala_whoami')
   })
 
+  it('exposes all five registered tools (whoami + 4 kontena read-only)', async () => {
+    const result = await listToolsHandler()
+    const names = result.tools.map((t) => t.name)
+    expect(names).toEqual([
+      'sawala_whoami',
+      'sawala_kontena_list_schemas',
+      'sawala_kontena_get_schema',
+      'sawala_kontena_list_entries',
+      'sawala_kontena_get_entry',
+    ])
+  })
+
   it('advertises every registered tool with name/description/inputSchema/annotations', async () => {
     const result = await listToolsHandler()
-    expect(result.tools.length).toBeGreaterThanOrEqual(1)
+    expect(result.tools.length).toBe(5)
     for (const tool of result.tools) {
       expect(tool.name).toMatch(/^sawala_/)
       expect(typeof tool.description).toBe('string')

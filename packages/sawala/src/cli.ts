@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import pkg from '../package.json'
+import { createKontenaCommand } from './commands/kontena'
 import { createLoginCommand } from './commands/login'
 import { createLogoutCommand } from './commands/logout'
 import { createOrgCommand } from './commands/org'
@@ -20,6 +21,7 @@ export function createProgram(): Command {
   program.addCommand(createWhoamiCommand())
   program.addCommand(createOrgCommand())
   program.addCommand(createProjectCommand())
+  program.addCommand(createKontenaCommand())
 
   return program
 }

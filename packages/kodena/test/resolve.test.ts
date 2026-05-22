@@ -135,6 +135,7 @@ describe('assertTokenScope', () => {
     apiBase: 'https://api.sawala.cloud',
     activeOrg: 'acme' as string | null,
     activeProject: null as string | null,
+    activeProjectId: null as string | null,
     scopeOrgId: 'org_acme' as string | null,
     scopeOrgSlug: 'acme' as string | null,
     tokenSource: 'file' as const,
