@@ -24,7 +24,7 @@ export function createProjectCommand(): Command {
     .action(async () => {
       const ctx = await loadContext()
       requireActiveOrg(ctx)
-      const result = await apiFetch<PaginatedProjects>(ctx, '/projects?limit=100')
+      const result = await apiFetch<PaginatedProjects>(ctx, '/cli/organization/projects?limit=100')
 
       if (result.items.length === 0) {
         process.stdout.write(`No projects in '${ctx.activeOrg}'.\n`)
@@ -51,7 +51,7 @@ export function createProjectCommand(): Command {
       const ctx = await loadContext()
       requireActiveOrg(ctx)
 
-      const result = await apiFetch<PaginatedProjects>(ctx, '/projects?limit=100')
+      const result = await apiFetch<PaginatedProjects>(ctx, '/cli/organization/projects?limit=100')
       const match = result.items.find((p) => p.slug === slug)
       if (!match) {
         const available = result.items.map((p) => p.slug).join(', ') || '(none)'
