@@ -15,7 +15,7 @@ import {
  * Berkasna is the asset/file metadata service in the Sawala suite. Assets
  * are uploaded files (images, PDFs, videos, audio, etc.); the CLI surface
  * is read-only and returns *metadata only* — to fetch the bytes, GET the
- * asset's `publicUrl` (served from https://berkasna.sawala.cloud).
+ * asset's `url` (served from https://berkasna.sawala.cloud).
  *
  * Unlike Kontena and Formulir, Berkasna's routes are org-scoped, not
  * project-scoped — the worker reads the project from the x-project-id
@@ -26,23 +26,21 @@ import {
 interface AssetRow {
   id: string
   orgId: string
-  projectId: string | null
-  originalName: string | null
+  filename: string
   mimeType: string
   size: number
   status: string
-  sha256: string | null
+  fileHash: string | null
   r2Key: string
-  publicUrl: string | null
+  url: string
   createdAt: string
   updatedAt: string
   [k: string]: unknown
 }
 
 interface AssetListResponse {
-  items: AssetRow[]
-  hasMore: boolean
-  nextCursor: string | null
+  data: AssetRow[]
+  meta: { cursor: string | null; hasMore: boolean }
 }
 
 type AssetKind = 'image' | 'pdf' | 'video' | 'audio' | 'all'
@@ -120,20 +118,20 @@ async function listAssets(opts: {
     `/cli/berkasna/assets?${params.toString()}`,
   )
 
-  if (result.items.length === 0) {
+  if (result.data.length === 0) {
     process.stdout.write('No assets matching filters.\n')
     return
   }
 
-  for (const a of result.items) {
-    const name = a.originalName ?? '(unnamed)'
+  for (const a of result.data) {
+    const name = a.filename || '(unnamed)'
     process.stdout.write(
       `${a.id.padEnd(28)} ${kindOf(a.mimeType).padEnd(8)} ${name.padEnd(40)} ${formatSize(a.size)}\n`,
     )
   }
 
-  if (result.nextCursor) {
-    process.stdout.write(`\n(more — pass --cursor ${result.nextCursor})\n`)
+  if (result.meta.cursor) {
+    process.stdout.write(`\n(more — pass --cursor ${result.meta.cursor})\n`)
   }
 }
 

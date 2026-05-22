@@ -60,7 +60,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function emptyAssetList(): Response {
-  return jsonResponse({ items: [], hasMore: false, nextCursor: null })
+  return jsonResponse({ data: [], meta: { cursor: null, hasMore: false } })
 }
 
 function captureStdout(): { lines: string[]; restore: () => void } {
@@ -200,24 +200,22 @@ describe('sawala berkasna list / asset list', () => {
   it('prints rows with id/kind/name/size and nextCursor hint when present', async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
-        items: [
+        data: [
           {
             id: 'ast_01XYZ',
             orgId: 'org_1',
-            projectId: PROJECT_ID,
-            originalName: 'logo.png',
+            filename: 'logo.png',
             mimeType: 'image/png',
             size: 2048,
-            status: 'ready',
-            sha256: null,
+            status: 'completed',
+            fileHash: null,
             r2Key: 'org/1/ast_01XYZ',
-            publicUrl: 'https://berkasna.sawala.cloud/x',
+            url: 'https://berkasna.sawala.cloud/x',
             createdAt: '2026-05-10T00:00:00Z',
             updatedAt: '2026-05-10T00:00:00Z',
           },
         ],
-        hasMore: true,
-        nextCursor: 'cur_next',
+        meta: { cursor: 'cur_next', hasMore: true },
       }),
     )
     vi.stubGlobal('fetch', fetchMock)
@@ -275,14 +273,13 @@ describe('sawala berkasna asset get', () => {
     const asset = {
       id: 'ast_01XYZ',
       orgId: 'org_1',
-      projectId: PROJECT_ID,
-      originalName: 'logo.png',
+      filename: 'logo.png',
       mimeType: 'image/png',
       size: 2048,
-      status: 'ready',
-      sha256: 'abc',
+      status: 'completed',
+      fileHash: 'abc',
       r2Key: 'org/1/ast_01XYZ',
-      publicUrl: 'https://berkasna.sawala.cloud/x',
+      url: 'https://berkasna.sawala.cloud/x',
       createdAt: '2026-05-10T00:00:00Z',
       updatedAt: '2026-05-10T00:00:00Z',
     }

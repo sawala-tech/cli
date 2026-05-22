@@ -6,14 +6,13 @@ import { zodParser, type ToolDefinition, type ToolInputSchema } from './types'
 interface AssetRow {
   id: string
   orgId: string
-  projectId: string | null
-  originalName: string | null
+  filename: string
   mimeType: string
   size: number
   status: string
-  sha256: string | null
+  fileHash: string | null
   r2Key: string
-  publicUrl: string | null
+  url: string
   createdAt: string
   updatedAt: string
   [k: string]: unknown
@@ -45,7 +44,7 @@ export const berkasnaGetAssetTool: ToolDefinition<Input> = {
     'Fetch one Berkasna asset by ULID. In Sawala, an *asset* is an uploaded ' +
     'file (image, PDF, video, audio, etc.) tracked by Berkasna, the file/media ' +
     'metadata service. This tool returns *metadata only* — it does NOT download ' +
-    "bytes. To fetch the actual content, GET the asset's `publicUrl` (served " +
+    "bytes. To fetch the actual content, GET the asset's `url` (served " +
     'from https://berkasna.sawala.cloud).',
   inputSchema,
   annotations: { title: 'Get Berkasna asset', readOnlyHint: true },

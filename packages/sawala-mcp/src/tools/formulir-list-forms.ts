@@ -41,7 +41,7 @@ export const formulirListFormsTool: ToolDefinition<Record<string, never>> = {
     }
     const result = await apiFetch<FormListResponse>(
       ctx,
-      `/cli/formulir/projects/${encodeURIComponent(ctx.activeProjectId)}/forms/?limit=100`,
+      `/cli/formulir/projects/${encodeURIComponent(ctx.activeProjectId)}/forms?limit=100`,
     )
     return {
       activeOrg: ctx.activeOrg,

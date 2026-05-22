@@ -66,7 +66,7 @@ export const formulirGetFormTool: ToolDefinition<Input> = {
     }
     const listResult = await apiFetch<FormListResponse>(
       ctx,
-      `/cli/formulir/projects/${encodeURIComponent(projectId)}/forms/?limit=100`,
+      `/cli/formulir/projects/${encodeURIComponent(projectId)}/forms?limit=100`,
     )
     const match = listResult.data.find((f) => f.slug === input.slugOrId)
     if (!match) {

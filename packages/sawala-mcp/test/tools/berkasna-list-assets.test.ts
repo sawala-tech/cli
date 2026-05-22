@@ -27,7 +27,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 describe('sawala_berkasna_list_assets', () => {
   it('defaults limit to 25 with no mimeCategory or projectId', async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse({ items: [], hasMore: false, nextCursor: null }),
+      jsonResponse({ data: [], meta: { cursor: null, hasMore: false } }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -48,7 +48,7 @@ describe('sawala_berkasna_list_assets', () => {
 
   it('kind: image maps to mimeCategory=image', async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse({ items: [], hasMore: false, nextCursor: null }),
+      jsonResponse({ data: [], meta: { cursor: null, hasMore: false } }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -62,7 +62,7 @@ describe('sawala_berkasna_list_assets', () => {
 
   it('kind: pdf maps to mimeCategory=application/pdf (URL-encoded)', async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse({ items: [], hasMore: false, nextCursor: null }),
+      jsonResponse({ data: [], meta: { cursor: null, hasMore: false } }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -76,7 +76,7 @@ describe('sawala_berkasna_list_assets', () => {
 
   it('kind: all omits mimeCategory', async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse({ items: [], hasMore: false, nextCursor: null }),
+      jsonResponse({ data: [], meta: { cursor: null, hasMore: false } }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -89,7 +89,7 @@ describe('sawala_berkasna_list_assets', () => {
 
   it('passes limit, cursor, and projectId through', async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse({ items: [], hasMore: false, nextCursor: null }),
+      jsonResponse({ data: [], meta: { cursor: null, hasMore: false } }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -106,24 +106,22 @@ describe('sawala_berkasna_list_assets', () => {
   it('returns mapped asset metadata (no internal fields like r2Key)', async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
-        items: [
+        data: [
           {
             id: 'ast_01XYZ',
             orgId: 'org_1',
-            projectId: 'proj_01abc',
-            originalName: 'logo.png',
+            filename: 'logo.png',
             mimeType: 'image/png',
             size: 2048,
-            status: 'ready',
-            sha256: 'abc',
+            status: 'completed',
+            fileHash: 'abc',
             r2Key: 'org/1/ast_01XYZ',
-            publicUrl: 'https://berkasna.sawala.cloud/x',
+            url: 'https://berkasna.sawala.cloud/x',
             createdAt: '2026-05-10T00:00:00Z',
             updatedAt: '2026-05-10T00:00:00Z',
           },
         ],
-        hasMore: true,
-        nextCursor: 'cur_next',
+        meta: { cursor: 'cur_next', hasMore: true },
       }),
     )
     vi.stubGlobal('fetch', fetchMock)
@@ -135,11 +133,11 @@ describe('sawala_berkasna_list_assets', () => {
     expect(out.assets).toEqual([
       {
         id: 'ast_01XYZ',
-        originalName: 'logo.png',
+        filename: 'logo.png',
         mimeType: 'image/png',
         size: 2048,
-        status: 'ready',
-        publicUrl: 'https://berkasna.sawala.cloud/x',
+        status: 'completed',
+        url: 'https://berkasna.sawala.cloud/x',
         createdAt: '2026-05-10T00:00:00Z',
       },
     ])
