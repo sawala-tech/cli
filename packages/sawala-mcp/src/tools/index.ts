@@ -1,4 +1,8 @@
 import type { ToolDefinition } from './types'
+import { formulirGetFormTool } from './formulir-get-form'
+import { formulirGetSubmissionTool } from './formulir-get-submission'
+import { formulirListFormsTool } from './formulir-list-forms'
+import { formulirListSubmissionsTool } from './formulir-list-submissions'
 import { kontenaGetEntryTool } from './kontena-get-entry'
 import { kontenaGetSchemaTool } from './kontena-get-schema'
 import { kontenaListEntriesTool } from './kontena-list-entries'
@@ -15,6 +19,10 @@ export const ALL_TOOLS: ReadonlyArray<ToolDefinition<unknown>> = [
   kontenaGetSchemaTool,
   kontenaListEntriesTool,
   kontenaGetEntryTool,
+  formulirListFormsTool,
+  formulirGetFormTool,
+  formulirListSubmissionsTool,
+  formulirGetSubmissionTool,
 ] as ReadonlyArray<ToolDefinition<unknown>>
 
 export const TOOLS_BY_NAME: ReadonlyMap<string, ToolDefinition<unknown>> = new Map(
