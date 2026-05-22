@@ -6,14 +6,18 @@ import {
   type ToolDefinition,
 } from './types'
 
+// Response shape of `GET /kodena/scripts` — see
+// sawala-cloud-core/services/kodena/src/types.ts (Script + withDerived).
+// The backend serialises rows in snake_case and adds `tenant_subdomain`
+// as a derived field on every row.
 interface ScriptSummary {
-  slug: string
-  orgHandle: string | null
-  tenantSubdomain: string | null
-  customHostname: string | null
+  script_slug: string
+  org_handle: string
+  tenant_subdomain: string
+  custom_hostname: string | null
   kind: string
-  createdAt: string
-  updatedAt: string
+  created_on: string
+  modified_on: string
 }
 
 export const listScriptsTool: ToolDefinition<Record<string, never>> = {
@@ -33,20 +37,18 @@ export const listScriptsTool: ToolDefinition<Record<string, never>> = {
       activeOrg: ctx.activeOrg,
       count: scripts.length,
       scripts: scripts.map((s) => ({
-        slug: s.slug,
+        slug: s.script_slug,
         url: resolvePublicUrl(s),
         kind: s.kind,
-        customHostname: s.customHostname,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
+        customHostname: s.custom_hostname,
+        createdAt: s.created_on,
+        updatedAt: s.modified_on,
       })),
     }
   },
 }
 
-function resolvePublicUrl(s: ScriptSummary): string | null {
-  if (s.customHostname) return `https://${s.customHostname}`
-  if (s.tenantSubdomain) return `https://${s.tenantSubdomain}.kodena.id`
-  if (s.orgHandle) return `https://${s.slug}-${s.orgHandle}.kodena.id`
-  return null
+function resolvePublicUrl(s: ScriptSummary): string {
+  if (s.custom_hostname) return `https://${s.custom_hostname}`
+  return `https://${s.tenant_subdomain}.kodena.id`
 }
