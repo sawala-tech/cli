@@ -1,9 +1,25 @@
 {
   "name": "@sawala/cli",
   "version": "0.0.1",
-  "private": true,
   "description": "Sawala umbrella CLI — Kontena, Formulir, Berkasna, and Kodena under one roof.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sawala-tech/cli.git",
+    "directory": "packages/sawala"
+  },
+  "homepage": "https://github.com/sawala-tech/cli/tree/main/packages/sawala#readme",
+  "bugs": {
+    "url": "https://github.com/sawala-tech/cli/issues"
+  },
+  "keywords": [
+    "sawala",
+    "kontena",
+    "formulir",
+    "berkasna",
+    "kodena",
+    "cli"
+  ],
   "bin": {
     "sawala": "./dist/cli.js"
   },
@@ -15,18 +31,22 @@
   "engines": {
     "node": ">=20"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "node esbuild.config.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sawala/auth": "*",
     "commander": "^12.0.0",
     "prompts": "^2.4.2",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@sawala/auth": "*",
     "@types/node": "^22.0.0",
     "@types/prompts": "^2.4.9",
     "esbuild": "^0.20.0",

@@ -1,9 +1,27 @@
 {
   "name": "@sawala/mcp",
   "version": "0.0.1",
-  "private": true,
-  "description": "Drive the Sawala API from any MCP-capable AI agent.",
+  "description": "Drive the Sawala API (Kontena, Formulir, Berkasna, Kodena) from any MCP-capable AI agent.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sawala-tech/cli.git",
+    "directory": "packages/sawala-mcp"
+  },
+  "homepage": "https://github.com/sawala-tech/cli/tree/main/packages/sawala-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/sawala-tech/cli/issues"
+  },
+  "keywords": [
+    "sawala",
+    "kontena",
+    "formulir",
+    "berkasna",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "ai-agent"
+  ],
   "bin": {
     "sawala-mcp": "./dist/server.js"
   },
@@ -15,6 +33,10 @@
   "engines": {
     "node": ">=20"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "node esbuild.config.mjs",
     "test": "vitest run",
@@ -22,10 +44,10 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@sawala/auth": "*",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@sawala/auth": "*",
     "esbuild": "^0.20.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
