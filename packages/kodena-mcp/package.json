@@ -1,6 +1,6 @@
 {
   "name": "@sawala/kodena-mcp",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Drive the Kodena API from any MCP-capable AI agent.",
   "license": "MIT",
   "repository": {
