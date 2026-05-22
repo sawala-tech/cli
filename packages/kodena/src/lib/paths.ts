@@ -1,5 +1,4 @@
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { configDir, KODENA_BRAND } from '@sawala/auth'
 
 /**
  * The directory the CLI uses for its credentials + config files.
@@ -8,9 +7,10 @@ import { join } from 'node:path'
  * home layouts, CI sandboxes, and tests. The override is taken verbatim —
  * no `~` expansion or env interpolation — so callers must pass an absolute
  * (or process-cwd-relative) path.
+ *
+ * Thin wrapper around `@sawala/auth`'s `configDir(KODENA_BRAND)` so every
+ * other module keeps its zero-arg call site.
  */
 export function kodenaConfigDir(): string {
-  const override = process.env['KODENA_CONFIG_DIR']
-  if (override && override.length > 0) return override
-  return join(homedir(), '.kodena')
+  return configDir(KODENA_BRAND)
 }
