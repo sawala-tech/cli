@@ -1,5 +1,11 @@
 # @sawala/kodena
 
+## 0.0.5
+
+### Patch Changes
+
+- 459ae79: Add `kodena script list` to browse every script deployed to the active org — prints slug, kind, resolved public URL, and `updatedAt` per script.
+
 ## 0.0.4
 
 ### Patch Changes
