@@ -27,14 +27,13 @@ function jsonResponse(body: unknown, status = 200): Response {
 const ASSET = {
   id: 'ast_01XYZ',
   orgId: 'org_1',
-  projectId: 'proj_01abc',
-  originalName: 'logo.png',
+  filename: 'logo.png',
   mimeType: 'image/png',
   size: 2048,
-  status: 'ready',
-  sha256: 'abc',
+  status: 'completed',
+  fileHash: 'abc',
   r2Key: 'org/1/ast_01XYZ',
-  publicUrl: 'https://berkasna.sawala.cloud/x',
+  url: 'https://berkasna.sawala.cloud/x',
   createdAt: '2026-05-10T00:00:00Z',
   updatedAt: '2026-05-10T00:00:00Z',
 }

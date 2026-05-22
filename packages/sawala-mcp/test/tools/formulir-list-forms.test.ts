@@ -49,7 +49,7 @@ describe('sawala_formulir_list_forms', () => {
     const out = await formulirListFormsTool.handle({}, baseCtx)
     const [url] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe(
-      'https://api.sawala.cloud/cli/formulir/projects/proj_01abc/forms/?limit=100',
+      'https://api.sawala.cloud/cli/formulir/projects/proj_01abc/forms?limit=100',
     )
     expect(out).toMatchObject({
       activeOrg: 'acme',

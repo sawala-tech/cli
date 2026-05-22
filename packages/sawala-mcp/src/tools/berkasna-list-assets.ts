@@ -5,19 +5,18 @@ import { zodParser, type ToolDefinition, type ToolInputSchema } from './types'
 
 interface AssetRow {
   id: string
-  originalName: string | null
+  filename: string
   mimeType: string
   size: number
   status: string
-  publicUrl: string | null
+  url: string
   createdAt: string
   [k: string]: unknown
 }
 
 interface AssetListResponse {
-  items: AssetRow[]
-  hasMore: boolean
-  nextCursor: string | null
+  data: AssetRow[]
+  meta: { cursor: string | null; hasMore: boolean }
 }
 
 const inputZod = z
@@ -75,7 +74,7 @@ export const berkasnaListAssetsTool: ToolDefinition<Input> = {
     'uploaded file (image, PDF, video, audio, etc.) tracked by Berkasna, the ' +
     'file/media metadata service. This tool returns *metadata only* — it does ' +
     'NOT download bytes. To fetch an asset\'s actual content, GET its ' +
-    '`publicUrl` (served from https://berkasna.sawala.cloud). Berkasna ' +
+    '`url` (served from https://berkasna.sawala.cloud). Berkasna ' +
     'routes are org-scoped; the active project from the CLI context is sent ' +
     'as a header but is NOT used as a filter unless you pass `projectId` ' +
     'explicitly.',
@@ -100,19 +99,19 @@ export const berkasnaListAssetsTool: ToolDefinition<Input> = {
     return {
       activeOrg: ctx.activeOrg,
       activeProject: ctx.activeProject,
-      assets: result.items.map((a) => ({
+      assets: result.data.map((a) => ({
         id: a.id,
-        originalName: a.originalName,
+        filename: a.filename,
         mimeType: a.mimeType,
         size: a.size,
         status: a.status,
-        publicUrl: a.publicUrl,
+        url: a.url,
         createdAt: a.createdAt,
       })),
       pagination: {
         limit,
-        hasMore: result.hasMore,
-        nextCursor: result.nextCursor,
+        hasMore: result.meta.hasMore,
+        nextCursor: result.meta.cursor,
       },
     }
   },

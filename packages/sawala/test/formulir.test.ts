@@ -75,7 +75,7 @@ function captureStdout(): { lines: string[]; restore: () => void } {
   return { lines, restore: () => spy.mockRestore() }
 }
 
-const FORMS_LIST_URL = `${API_BASE}/cli/formulir/projects/${PROJECT_ID}/forms/?limit=100`
+const FORMS_LIST_URL = `${API_BASE}/cli/formulir/projects/${PROJECT_ID}/forms?limit=100`
 
 describe('sawala formulir list / form list', () => {
   it('both call the forms list endpoint and produce identical output', async () => {
@@ -192,7 +192,7 @@ describe('sawala formulir form get', () => {
       if (url.endsWith('/forms/contact')) {
         return jsonResponse({ error: 'not found' }, 404)
       }
-      if (url.endsWith('/forms/?limit=100')) {
+      if (url.endsWith('/forms?limit=100')) {
         return jsonResponse({
           data: [form],
           meta: { pagination: { limit: 100, nextCursor: null, hasMore: false } },
@@ -223,7 +223,7 @@ describe('sawala formulir form get', () => {
   it('throws a clear error if the slug also fails to match', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.includes('/forms/missing')) return jsonResponse({ error: 'not found' }, 404)
-      if (url.endsWith('/forms/?limit=100')) {
+      if (url.endsWith('/forms?limit=100')) {
         return jsonResponse({
           data: [
             {
@@ -283,7 +283,7 @@ describe('sawala formulir submission list', () => {
       if (url.endsWith('/forms/contact')) {
         return jsonResponse({ error: 'not found' }, 404)
       }
-      if (url.endsWith('/forms/?limit=100')) {
+      if (url.endsWith('/forms?limit=100')) {
         return jsonResponse({
           data: [FORM],
           meta: { pagination: { limit: 100, nextCursor: null, hasMore: false } },
@@ -447,7 +447,7 @@ describe('sawala formulir submission get', () => {
       if (url.endsWith('/forms/contact')) {
         return jsonResponse({ error: 'not found' }, 404)
       }
-      if (url.endsWith('/forms/?limit=100')) {
+      if (url.endsWith('/forms?limit=100')) {
         return jsonResponse({
           data: [FORM],
           meta: { pagination: { limit: 100, nextCursor: null, hasMore: false } },

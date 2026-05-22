@@ -56,7 +56,7 @@ describe('sawala_formulir_get_form', () => {
   it('falls back to listing forms on 404 and matches by slug', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.endsWith('/forms/contact')) return jsonResponse({ error: 'not found' }, 404)
-      if (url.endsWith('/forms/?limit=100')) {
+      if (url.endsWith('/forms?limit=100')) {
         return jsonResponse({
           data: [FORM],
           meta: { pagination: { limit: 100, nextCursor: null, hasMore: false } },
