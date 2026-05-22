@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiFetch } from '../src/lib/api'
-import type { CliContext } from '../src/lib/resolve'
+import { ApiError, apiFetch } from '../src/api'
+import type { CliContext } from '../src/resolve'
 
 const ctx: CliContext = {
   token: 'koda_ABCDEFGHIJKLMNOPQRSTUVWXYZ234567',
@@ -17,9 +17,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function stubFetchOnce(response: { status: number; body: unknown; text?: string }): ReturnType<typeof vi.fn> {
+function stubFetchOnce(response: {
+  status: number
+  body: unknown
+  text?: string
+}): ReturnType<typeof vi.fn> {
   const mock = vi.fn(async () => {
-    // 204 No Content per spec must have a null body; Response refuses otherwise.
     if (response.status === 204) return new Response(null, { status: 204 })
     const body = response.text ?? JSON.stringify(response.body)
     return new Response(body, {

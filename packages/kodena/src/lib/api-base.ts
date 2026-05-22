@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE = 'https://api.sawala.cloud'
+import { KODENA_BRAND, resolveApiBase as resolveApiBaseShared } from '@sawala/auth'
 
 /**
  * Resolve the API base URL the CLI talks to.
@@ -6,16 +6,9 @@ const DEFAULT_API_BASE = 'https://api.sawala.cloud'
  * Order: --api-base flag (resolved by the caller) → KODENA_API_BASE env →
  * credentials.apiBase (resolved by the caller) → production default.
  *
- * This module owns only the env + default fallback; flag/credentials override
- * is the caller's responsibility (they pass them in via the optional arg).
+ * Thin wrapper that binds `KODENA_BRAND` so callers keep the single-arg
+ * signature the kodena CLI commands already pass.
  */
 export function resolveApiBase(override?: string | null): string {
-  if (override) return stripTrailingSlash(override)
-  const env = process.env['KODENA_API_BASE']
-  if (env && env.length > 0) return stripTrailingSlash(env)
-  return DEFAULT_API_BASE
-}
-
-function stripTrailingSlash(url: string): string {
-  return url.endsWith('/') ? url.slice(0, -1) : url
+  return resolveApiBaseShared(KODENA_BRAND, override)
 }
