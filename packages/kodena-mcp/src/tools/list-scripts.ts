@@ -23,11 +23,12 @@ interface ScriptSummary {
 export const listScriptsTool: ToolDefinition<Record<string, never>> = {
   name: 'kodena_list_scripts',
   description:
-    'List every Kodena script in the active organisation. A "script" is a deployed ' +
-    'Cloudflare Worker bundle owned by an org — its slug becomes the subdomain it ' +
-    'serves from (e.g. `my-blog` → `my-blog-acme.kodena.id`). Use this for browsing ' +
-    '("what scripts do I have"); use `kodena_get_script` when the user names a ' +
-    'specific slug. Takes no input.',
+    'List every Kodena script in the active organisation AND active project (the ' +
+    'backend filters on both org_id and project_id — switching projects changes ' +
+    'what this returns). A "script" is a deployed Cloudflare Worker bundle — its ' +
+    'slug becomes the subdomain it serves from (e.g. `my-blog` → ' +
+    '`my-blog-acme.kodena.id`). Use this for browsing ("what scripts do I have"); ' +
+    'use `kodena_get_script` when the user names a specific slug. Takes no input.',
   inputSchema: EMPTY_INPUT_SCHEMA,
   annotations: { title: 'List scripts', readOnlyHint: true },
   parseInput: emptyInputParser,
