@@ -1,6 +1,6 @@
 {
   "name": "@sawala/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Drive the Sawala API (Kontena, Formulir, Berkasna, Kodena) from any MCP-capable AI agent.",
   "license": "MIT",
   "repository": {
