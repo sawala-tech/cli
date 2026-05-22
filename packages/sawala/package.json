@@ -1,6 +1,6 @@
 {
   "name": "@sawala/cli",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Sawala umbrella CLI — Kontena, Formulir, Berkasna, and Kodena under one roof.",
   "license": "MIT",
   "repository": {
