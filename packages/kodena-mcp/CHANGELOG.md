@@ -4,6 +4,12 @@
 
 ### Minor Changes
 
+- 899bbc0: Initial public release of `@sawala/kodena-mcp` — an MCP server that lets any MCP-capable AI agent drive the Kodena API.
+
+## 0.1.0
+
+### Minor Changes
+
 - cfc78ee: Initial public release of `@sawala/kodena-mcp` — a [Model Context Protocol](https://modelcontextprotocol.io) server that lets any MCP-capable AI agent (Claude Desktop, Claude Code, Cursor, …) drive the Kodena API on a user's behalf using their existing `~/.kodena/credentials`.
 
   **18 tools** covering the full Kodena surface (buy-domains module excluded by design):
