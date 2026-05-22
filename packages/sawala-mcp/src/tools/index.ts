@@ -1,4 +1,6 @@
 import type { ToolDefinition } from './types'
+import { berkasnaGetAssetTool } from './berkasna-get-asset'
+import { berkasnaListAssetsTool } from './berkasna-list-assets'
 import { formulirGetFormTool } from './formulir-get-form'
 import { formulirGetSubmissionTool } from './formulir-get-submission'
 import { formulirListFormsTool } from './formulir-list-forms'
@@ -23,6 +25,8 @@ export const ALL_TOOLS: ReadonlyArray<ToolDefinition<unknown>> = [
   formulirGetFormTool,
   formulirListSubmissionsTool,
   formulirGetSubmissionTool,
+  berkasnaListAssetsTool,
+  berkasnaGetAssetTool,
 ] as ReadonlyArray<ToolDefinition<unknown>>
 
 export const TOOLS_BY_NAME: ReadonlyMap<string, ToolDefinition<unknown>> = new Map(

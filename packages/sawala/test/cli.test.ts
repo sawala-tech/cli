@@ -43,7 +43,7 @@ describe('sawala CLI smoke', () => {
     expect(program.name()).toBe('sawala')
   })
 
-  it('registers the login/logout/whoami/org/project/kontena/formulir subcommands', () => {
+  it('registers the login/logout/whoami/org/project/kontena/formulir/berkasna subcommands', () => {
     const program = createProgram()
     const names = program.commands.map((c) => c.name())
     expect(names).toContain('login')
@@ -53,5 +53,6 @@ describe('sawala CLI smoke', () => {
     expect(names).toContain('project')
     expect(names).toContain('kontena')
     expect(names).toContain('formulir')
+    expect(names).toContain('berkasna')
   })
 })
