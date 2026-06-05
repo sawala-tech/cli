@@ -12,6 +12,7 @@ const BuildSchema = z
     workerEntry: z.string().min(1).optional(),
     assetsDir: z.string().min(1).optional(),
     runByDefault: z.boolean().optional(),
+    static: z.boolean().optional(),
   })
   .optional()
 
@@ -105,4 +106,16 @@ export function resolveBundlePaths(configPath: string, config: KodenaConfig): Re
     workerEntry: isAbsolute(workerEntryRaw) ? workerEntryRaw : join(projectDir, workerEntryRaw),
     assetsDir: isAbsolute(assetsDirRaw) ? assetsDirRaw : join(projectDir, assetsDirRaw),
   }
+}
+
+/**
+ * Resolve the directory to deploy as a `kind:'assets'` static bundle — the
+ * whole static export, not an `assets/` subfolder. Precedence:
+ * `build.assetsDir`, else `build.outputDir`, else `out` (Next's
+ * `output: 'export'` default). Made absolute against the config file's dir.
+ */
+export function resolveStaticAssetsDir(configPath: string, config: KodenaConfig): string {
+  const projectDir = dirname(configPath)
+  const raw = config.build?.assetsDir ?? config.build?.outputDir ?? 'out'
+  return isAbsolute(raw) ? raw : join(projectDir, raw)
 }

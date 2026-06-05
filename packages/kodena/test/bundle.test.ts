@@ -115,4 +115,14 @@ describe('summarise', () => {
     expect(s.assetCount).toBe(2)
     expect(s.assetsTotalBytes).toBe(7)
   })
+
+  it('reports zero worker bytes for a static (assets) bundle', () => {
+    const s = summarise({
+      kind: 'assets',
+      assets: [{ path: '/index.html', content: Buffer.from('hello').toString('base64'), size: 5 }],
+    })
+    expect(s.workerBytes).toBe(0)
+    expect(s.assetCount).toBe(1)
+    expect(s.assetsTotalBytes).toBe(5)
+  })
 })

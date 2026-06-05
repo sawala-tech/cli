@@ -7,6 +7,7 @@ import {
   KodenaConfigSchema,
   readKodenaConfig,
   resolveBundlePaths,
+  resolveStaticAssetsDir,
 } from '../src/lib/config-file'
 
 let projectDir: string
@@ -157,5 +158,33 @@ describe('resolveBundlePaths', () => {
     })
     expect(paths.workerEntry).toBe('/abs/worker.js')
     expect(paths.assetsDir).toBe('/abs/assets')
+  })
+})
+
+describe('KodenaConfigSchema build.static', () => {
+  it('accepts build.static: true', () => {
+    const r = KodenaConfigSchema.safeParse({ slug: 'x', build: { outputDir: 'out', static: true } })
+    expect(r.success).toBe(true)
+    if (r.success) expect(r.data.build?.static).toBe(true)
+  })
+})
+
+describe('resolveStaticAssetsDir', () => {
+  const configPath = '/proj/kodena.json'
+
+  it('defaults to <projectDir>/out', () => {
+    expect(resolveStaticAssetsDir(configPath, { slug: 'x' })).toBe('/proj/out')
+  })
+
+  it('uses build.outputDir directly (not outputDir/assets)', () => {
+    expect(resolveStaticAssetsDir(configPath, { slug: 'x', build: { outputDir: 'dist', static: true } })).toBe('/proj/dist')
+  })
+
+  it('build.assetsDir overrides build.outputDir', () => {
+    expect(resolveStaticAssetsDir(configPath, { slug: 'x', build: { outputDir: 'dist', assetsDir: 'public' } })).toBe('/proj/public')
+  })
+
+  it('passes an absolute path through unchanged', () => {
+    expect(resolveStaticAssetsDir(configPath, { slug: 'x', build: { outputDir: '/abs/out' } })).toBe('/abs/out')
   })
 })
