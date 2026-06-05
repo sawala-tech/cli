@@ -27,6 +27,14 @@ export interface WorkerBundle {
   compatibilityDate?: string
 }
 
+/** A pure-static deploy: a folder of files served by a stock shim worker. */
+export interface AssetsBundle {
+  kind: 'assets'
+  assets: AssetFile[]
+}
+
+export type DeployBundle = WorkerBundle | AssetsBundle
+
 export interface BundleStats {
   workerBytes: number
   assetCount: number
@@ -96,7 +104,7 @@ export async function walkAssets(assetsDir: string): Promise<AssetFile[]> {
   }
 
   if (assets.length === 0) {
-    throw new Error(`No assets found under ${assetsDir} — worker-bundle deploys require at least one asset.`)
+    throw new Error(`No assets found under ${assetsDir} — a deploy requires at least one asset.`)
   }
 
   return assets
@@ -123,10 +131,11 @@ export function validateVars(vars: Record<string, string> | undefined): void {
   }
 }
 
-/** Summarise a bundle for the CLI's progress output. */
-export function summarise(bundle: WorkerBundle): BundleStats {
+/** Summarise a bundle for the CLI's progress output. A static (assets) bundle
+ *  has no worker, so its worker byte count is 0. */
+export function summarise(bundle: DeployBundle): BundleStats {
   return {
-    workerBytes: base64DecodedLength(bundle.scriptContent),
+    workerBytes: bundle.kind === 'worker-bundle' ? base64DecodedLength(bundle.scriptContent) : 0,
     assetCount: bundle.assets.length,
     assetsTotalBytes: bundle.assets.reduce((sum, a) => sum + a.size, 0),
   }

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { promises as fs } from 'node:fs'
 import { dirname } from 'node:path'
 import { Command, Option } from 'commander'
 import { ApiError, apiFetch } from '../lib/api'
@@ -7,6 +8,7 @@ import {
   findKodenaConfig,
   readKodenaConfig,
   resolveBundlePaths,
+  resolveStaticAssetsDir,
 } from '../lib/config-file'
 import type { KodenaConfig } from '../lib/config-file'
 import {
@@ -15,6 +17,7 @@ import {
   validateVars,
   walkAssets,
   type WorkerBundle,
+  type DeployBundle,
 } from '../lib/bundle'
 import {
   assertTokenScope,
@@ -35,6 +38,7 @@ interface DeployOptions {
   compatDate?: string
   dryRun?: boolean
   build?: boolean
+  static?: boolean
 }
 
 interface DeployResponse {
@@ -45,7 +49,7 @@ interface DeployResponse {
 
 export function createDeployCommand(): Command {
   return new Command('deploy')
-    .description('Upload a worker-bundle (worker.js + assets) to Kodena.')
+    .description('Upload a worker-bundle, or a pure static site (--static), to Kodena.')
     .option('--slug <name>', "Override kodena.json's script slug.")
     .option('--org <slug>', 'Override the active org for this command only.')
     .option('--project <slug>', 'Override the active project for this command only.')
@@ -77,6 +81,14 @@ export function createDeployCommand(): Command {
     .option(
       '--no-build',
       "Skip the build step even if kodena.json sets `build.runByDefault: true`.",
+    )
+    .option(
+      '--static',
+      'Deploy the build output directory as a static site (kind:assets); no worker.',
+    )
+    .option(
+      '--no-static',
+      'Force a worker-bundle deploy even if kodena.json sets `build.static: true`.',
     )
     .action(async (options: DeployOptions) => {
       const ctx = await loadContext({
@@ -128,25 +140,57 @@ export function createDeployCommand(): Command {
       const compatibilityDate = options.compatDate ?? config.compatibilityDate
 
       process.stdout.write(`→ Reading kodena.json at ${configPath} (script: ${slug})\n`)
-      process.stdout.write(`→ Reading worker entry: ${workerEntry}\n`)
-      const worker = await readWorkerEntry(workerEntry)
-      process.stdout.write(`→ Reading assets: ${assetsDir}\n`)
-      const assets = await walkAssets(assetsDir)
-
-      const bundle: WorkerBundle = {
-        kind: 'worker-bundle',
-        scriptContent: worker.content,
-        assets,
+      // Static vs worker-bundle: explicit flag wins; else kodena.json
+      // build.static; else auto-detect — a missing worker entry means "static".
+      let isStatic: boolean
+      if (options.static !== undefined) {
+        isStatic = options.static
+      } else if (config.build?.static !== undefined) {
+        isStatic = config.build.static
+      } else {
+        isStatic = !(await fileExists(workerEntry))
+        if (isStatic) {
+          process.stdout.write(
+            `→ No worker entry at ${workerEntry}; deploying as a static site (kind:assets).\n`,
+          )
+        }
       }
-      if (vars && Object.keys(vars).length > 0) bundle.vars = vars
-      if (compatibilityFlags && compatibilityFlags.length > 0) bundle.compatibilityFlags = compatibilityFlags
-      if (compatibilityDate) bundle.compatibilityDate = compatibilityDate
+
+      let bundle: DeployBundle
+      if (isStatic) {
+        const staticDir = resolveStaticAssetsDir(configPath, config)
+        process.stdout.write(`→ Reading static assets: ${staticDir}\n`)
+        const assets = await walkAssets(staticDir)
+        if (vars && Object.keys(vars).length > 0) {
+          process.stdout.write('! Ignoring vars — static (kind:assets) deploys have no worker.\n')
+        }
+        if ((compatibilityFlags && compatibilityFlags.length > 0) || compatibilityDate) {
+          process.stdout.write('! Ignoring compatibility flags/date — static deploys have no worker.\n')
+        }
+        bundle = { kind: 'assets', assets }
+      } else {
+        process.stdout.write(`→ Reading worker entry: ${workerEntry}\n`)
+        const worker = await readWorkerEntry(workerEntry)
+        process.stdout.write(`→ Reading assets: ${assetsDir}\n`)
+        const assets = await walkAssets(assetsDir)
+        const wb: WorkerBundle = { kind: 'worker-bundle', scriptContent: worker.content, assets }
+        if (vars && Object.keys(vars).length > 0) wb.vars = vars
+        if (compatibilityFlags && compatibilityFlags.length > 0) wb.compatibilityFlags = compatibilityFlags
+        if (compatibilityDate) wb.compatibilityDate = compatibilityDate
+        bundle = wb
+      }
 
       const stats = summarise(bundle)
-      process.stdout.write(
-        `✓ Bundle ready: worker ${humanBytes(stats.workerBytes)}, ` +
-          `${stats.assetCount} assets (${humanBytes(stats.assetsTotalBytes)} total)\n`,
-      )
+      if (bundle.kind === 'worker-bundle') {
+        process.stdout.write(
+          `✓ Bundle ready: worker ${humanBytes(stats.workerBytes)}, ` +
+            `${stats.assetCount} assets (${humanBytes(stats.assetsTotalBytes)} total)\n`,
+        )
+      } else {
+        process.stdout.write(
+          `✓ Bundle ready: static — ${stats.assetCount} assets (${humanBytes(stats.assetsTotalBytes)} total)\n`,
+        )
+      }
 
       if (options.dryRun) {
         process.stdout.write('Dry run — not uploading. Bundle summary:\n')
@@ -255,15 +299,30 @@ function buildVars(
   return Object.keys(merged).length > 0 ? merged : undefined
 }
 
-function redactBundle(bundle: WorkerBundle): unknown {
+function redactBundle(bundle: DeployBundle): unknown {
   const stats = summarise(bundle)
+  const assets = `<${stats.assetCount} files, ${humanBytes(stats.assetsTotalBytes)} total>`
+  if (bundle.kind === 'assets') {
+    return { kind: bundle.kind, scriptContent: '<none — static>', assets }
+  }
   return {
     kind: bundle.kind,
     scriptContent: `<base64 elided, ${humanBytes(stats.workerBytes)} decoded>`,
-    assets: `<${stats.assetCount} files, ${humanBytes(stats.assetsTotalBytes)} total>`,
+    assets,
     vars: bundle.vars,
     compatibilityFlags: bundle.compatibilityFlags,
     compatibilityDate: bundle.compatibilityDate,
+  }
+}
+
+/** True if a file exists and is readable. Used to auto-detect static deploys
+ *  (a missing worker entry implies the project is a pure static site). */
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await fs.access(path)
+    return true
+  } catch {
+    return false
   }
 }
 
