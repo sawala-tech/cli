@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import { apiFetch } from '../lib/api'
-import { loadContext, requireActiveOrg } from '../lib/resolve'
+import { loadContext, requireActiveOrg, requireActiveProject } from '../lib/resolve'
 
 // Response shape of `GET /kodena/scripts` — see
 // sawala-cloud-core/services/kodena/src/types.ts (Script + withDerived).
@@ -17,18 +17,21 @@ export interface ScriptSummary {
 }
 
 export function createScriptCommand(): Command {
-  const script = new Command('script').description('Browse scripts deployed to the active org.')
+  const script = new Command('script').description('Browse scripts deployed to the active project.')
 
   script
     .command('list')
-    .description('List every Kodena script in the active org.')
+    .description('List every Kodena script in the active project.')
     .action(async () => {
       const ctx = await loadContext()
+      // Scripts are project-scoped: the backend filters by org AND project, so
+      // both must be active. apiFetch sends x-org-id / x-project-id from context.
       requireActiveOrg(ctx)
+      requireActiveProject(ctx)
       const scripts = await apiFetch<ScriptSummary[]>(ctx, '/kodena/scripts')
 
       if (scripts.length === 0) {
-        process.stdout.write(`No scripts in '${ctx.activeOrg}'.\n`)
+        process.stdout.write(`No scripts in '${ctx.activeOrg}/${ctx.activeProject}'.\n`)
         return
       }
 
