@@ -95,22 +95,30 @@ describe('sawala org use (interactive)', () => {
     { id: 'org_2', slug: 'globex', name: 'Globex' },
   ]
 
-  it('with no slug, prompts for the org and persists the pick', async () => {
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(JSON.stringify(ORGS), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-    )
+  // URL-aware mock: /me/orgs → org list; /projects → supplied project items
+  // (org switch resolves a project too).
+  function mockFetch(opts: {
+    orgs?: typeof ORGS
+    projects?: Array<{ id: string; slug: string; name: string }>
+  }) {
+    const orgs = opts.orgs ?? ORGS
+    const projects = opts.projects ?? []
+    const fetchMock = vi.fn(async (url: string) => {
+      const body = String(url).includes('/projects')
+        ? JSON.stringify({ items: projects, nextCursor: null })
+        : JSON.stringify(orgs)
+      return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } })
+    })
     vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  it('with no slug, prompts for the org and persists the pick', async () => {
+    mockFetch({})
     const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
 
-    // The interactive picker only runs in a TTY; simulate one.
     const origTTY = process.stdout.isTTY
     ;(process.stdout as { isTTY?: boolean }).isTTY = true
-
-    // Feed the selector: pick the second org (cross-org token has no scope).
     prompts.inject(['globex'])
 
     try {
@@ -126,14 +134,7 @@ describe('sawala org use (interactive)', () => {
   })
 
   it('with a single available org, auto-selects without prompting', async () => {
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(JSON.stringify([ORGS[0]]), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
+    mockFetch({ orgs: [ORGS[0]!] })
     const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
 
     const org = createOrgCommand()
@@ -142,6 +143,20 @@ describe('sawala org use (interactive)', () => {
     writeSpy.mockRestore()
     const cfg = await readConfig(SAWALA_BRAND)
     expect(cfg.activeOrg).toBe('acme')
+  })
+
+  it('switching org auto-selects the org’s sole project (slug + id)', async () => {
+    mockFetch({ projects: [{ id: 'proj_1', slug: 'blog', name: 'Blog' }] })
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    const org = createOrgCommand()
+    await org.parseAsync(['node', 'org', 'use', 'acme'])
+
+    writeSpy.mockRestore()
+    const cfg = await readConfig(SAWALA_BRAND)
+    expect(cfg.activeOrg).toBe('acme')
+    expect(cfg.activeProject).toBe('blog')
+    expect(cfg.activeProjectId).toBe('proj_1')
   })
 })
 
