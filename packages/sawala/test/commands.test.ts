@@ -3,9 +3,10 @@ import prompts from 'prompts'
 import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readConfig, SAWALA_BRAND } from '@sawala/auth'
+import { readConfig, updateConfig, SAWALA_BRAND } from '@sawala/auth'
 import { createWhoamiCommand } from '../src/commands/whoami'
 import { createOrgCommand } from '../src/commands/org'
+import { createProjectCommand } from '../src/commands/project'
 
 const VALID_TOKEN = 'koda_ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
 
@@ -141,5 +142,45 @@ describe('sawala org use (interactive)', () => {
     writeSpy.mockRestore()
     const cfg = await readConfig(SAWALA_BRAND)
     expect(cfg.activeOrg).toBe('acme')
+  })
+})
+
+describe('sawala project use (interactive)', () => {
+  const PROJECTS = {
+    items: [
+      { id: 'proj_1', slug: 'blog', name: 'Blog' },
+      { id: 'proj_2', slug: 'shop', name: 'Shop' },
+    ],
+    nextCursor: null,
+  }
+
+  it('with no slug, prompts and persists the pick (slug + id)', async () => {
+    await updateConfig(SAWALA_BRAND, { activeOrg: 'acme' })
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify(PROJECTS), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    const origTTY = process.stdout.isTTY
+    ;(process.stdout as { isTTY?: boolean }).isTTY = true
+    prompts.inject(['shop'])
+
+    try {
+      const project = createProjectCommand()
+      await project.parseAsync(['node', 'project', 'use'])
+    } finally {
+      ;(process.stdout as { isTTY?: boolean }).isTTY = origTTY
+    }
+
+    writeSpy.mockRestore()
+    const cfg = await readConfig(SAWALA_BRAND)
+    expect(cfg.activeProject).toBe('shop')
+    expect(cfg.activeProjectId).toBe('proj_2')
   })
 })
