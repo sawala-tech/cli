@@ -1,7 +1,8 @@
 import { Command } from 'commander'
+import prompts from 'prompts'
 import { apiFetch } from '../lib/api'
 import { updateConfig } from '../lib/config'
-import { loadContext, TokenScopeMismatchError } from '../lib/resolve'
+import { loadContext, TokenScopeMismatchError, type CliContext } from '../lib/resolve'
 
 export interface OrgSummary {
   id: string
@@ -38,32 +39,87 @@ export function createOrgCommand(): Command {
     })
 
   org
-    .command('use <slug>')
-    .description('Set the active organisation. Subsequent commands send `x-org-id` for this org.')
-    .action(async (slug: string) => {
+    .command('use [slug]')
+    .description(
+      'Set the active organisation. Omit <slug> to choose interactively from the orgs your token can reach. Subsequent commands send `x-org-id` for this org.',
+    )
+    .action(async (slug: string | undefined) => {
       const ctx = await loadContext()
 
-      // Pre-flight: if the token is scoped, the target must match.
-      if (ctx.scopeOrgSlug && ctx.scopeOrgSlug !== slug) {
-        throw new TokenScopeMismatchError(ctx.scopeOrgSlug, slug)
-      }
+      let target: string
+      if (slug) {
+        // Pre-flight: if the token is scoped, the target must match.
+        if (ctx.scopeOrgSlug && ctx.scopeOrgSlug !== slug) {
+          throw new TokenScopeMismatchError(ctx.scopeOrgSlug, slug)
+        }
 
-      // Validate membership by looking up the slug in the user's org list.
-      // If /me/orgs returns [] (dev or backend missing), trust the user's
-      // input and write the slug — downstream calls will fail informatively
-      // if it's wrong.
-      const orgs = await apiFetch<OrgSummary[]>(ctx, '/me/orgs')
-      if (orgs.length > 0) {
-        const match = orgs.find((o) => o.slug === slug)
-        if (!match) {
+        // Validate membership by looking up the slug in the user's org list.
+        // If /me/orgs returns [] (dev or backend missing), trust the user's
+        // input and write the slug — downstream calls will fail informatively
+        // if it's wrong.
+        const orgs = await apiFetch<OrgSummary[]>(ctx, '/me/orgs')
+        if (orgs.length > 0 && !orgs.some((o) => o.slug === slug)) {
           const available = orgs.map((o) => o.slug).join(', ')
           throw new Error(`Not a member of org '${slug}'. Available: ${available}.`)
         }
+        target = slug
+      } else {
+        const picked = await pickOrgInteractively(ctx)
+        if (!picked) {
+          process.stdout.write('Cancelled.\n')
+          return
+        }
+        target = picked
       }
 
-      await updateConfig({ activeOrg: slug })
-      process.stdout.write(`Active org: ${slug}\n`)
+      await updateConfig({ activeOrg: target })
+      process.stdout.write(`Active org: ${target}\n`)
     })
 
   return org
+}
+
+/**
+ * Resolve a target org slug interactively when no slug was passed.
+ *
+ * An org-scoped token can only ever target its one org, so there is nothing to
+ * pick — it short-circuits to that org. A cross-org (all-orgs) token presents
+ * the full membership list as a `prompts` selector, pre-selecting whatever org
+ * is currently active. Returns null when the user cancels (or there is nothing
+ * to choose); the caller treats that as a no-op.
+ */
+async function pickOrgInteractively(ctx: CliContext): Promise<string | null> {
+  const orgs = await apiFetch<OrgSummary[]>(ctx, '/me/orgs')
+  // A scoped token is pinned to one org — picking is moot.
+  const allowed = ctx.scopeOrgSlug ? orgs.filter((o) => o.slug === ctx.scopeOrgSlug) : orgs
+
+  if (allowed.length === 0) {
+    // Scoped token whose org didn't come back from /me/orgs (e.g. a Clerk-sync
+    // hiccup) — trust the token's scope claim rather than failing.
+    if (ctx.scopeOrgSlug) return ctx.scopeOrgSlug
+    throw new Error(
+      'No organisations found for your account. Run `kodena org use <slug>` once access is granted.',
+    )
+  }
+  if (allowed.length === 1) return allowed[0]!.slug
+
+  if (!process.stdout.isTTY) {
+    throw new Error(
+      'No org slug given and not running interactively. Pass one: `kodena org use <slug>`.',
+    )
+  }
+
+  const current = allowed.findIndex((o) => o.slug === ctx.activeOrg)
+  const { picked } = await prompts({
+    type: 'select',
+    name: 'picked',
+    message: 'Pick an active organisation',
+    choices: allowed.map((o) => ({
+      title: o.slug === ctx.activeOrg ? `${o.slug} — ${o.name} (current)` : `${o.slug} — ${o.name}`,
+      value: o.slug,
+    })),
+    initial: current >= 0 ? current : 0,
+  })
+
+  return picked ? String(picked) : null
 }
