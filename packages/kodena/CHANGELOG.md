@@ -1,5 +1,31 @@
 # @sawala/kodena
 
+## 0.3.0
+
+### Minor Changes
+
+- 7b1f35a: Interactive project picker for `project use` when no slug is given.
+
+  `kodena project use` and `sawala project use` now take the slug as optional.
+  When it's omitted, the CLI lists the active org's projects and presents an
+  interactive selector (the same `prompts` picker `org use` uses), pre-selecting
+  the currently-active project.
+
+  - Single project: auto-selected without prompting.
+  - Non-interactive (no TTY) with multiple projects and no slug: a clear error
+    asks for an explicit slug instead of hanging on a prompt.
+
+  Passing an explicit slug keeps the previous behaviour unchanged.
+
+### Patch Changes
+
+- a2515c5: Fix `kodena script list`: scope it to the active project.
+
+  Kodena scripts are project-scoped, but `script list` only required an active
+  org and never sent the project context — so the backend rejected the request
+  with `tenant-headers-missing`. The command now requires an active project
+  (`kodena project use <slug>` or `--project`) and sends `x-project-id`.
+
 ## 0.2.0
 
 ### Minor Changes
