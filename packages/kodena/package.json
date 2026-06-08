@@ -1,6 +1,6 @@
 {
   "name": "@sawala/kodena",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Deploy Cloudflare Worker bundles to Kodena from the terminal.",
   "license": "MIT",
   "repository": {
