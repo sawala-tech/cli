@@ -7,6 +7,8 @@ import {
   fetchTemplatesIndex,
   findTemplate,
   generateKodenaConfig,
+  isStandalone,
+  standaloneTemplates,
   type TemplateIndexEntry,
   type TemplatesIndex,
 } from '../lib/templates'
@@ -22,7 +24,15 @@ export function createTemplateCommand(): Command {
     .option('--ref <git-ref>', 'Read the index from this branch or tag of kodena-templates.')
     .action(async (opts: { ref?: string }) => {
       const index = await fetchTemplatesIndex(opts.ref ? { ref: opts.ref } : {})
-      for (const t of index.templates) {
+      // Only standalone templates can be scaffolded + deployed unattended;
+      // templates that need a provisioned backend (Kontena/Formulir) are
+      // hidden from the CLI until that path exists.
+      const templates = standaloneTemplates(index)
+      if (templates.length === 0) {
+        process.stdout.write('No standalone templates are available yet.\n')
+        return
+      }
+      for (const t of templates) {
         process.stdout.write(`  ${t.slug}  —  ${t.displayName}\n`)
         if (t.description) process.stdout.write(`      ${t.description}\n`)
       }
@@ -53,12 +63,24 @@ export function createInitCommand(): Command {
       const ref = opts.ref ?? index.ref
 
       // 1. Resolve which template: explicit arg, else interactive picker.
+      const available = standaloneTemplates(index)
       let picked: TemplateIndexEntry | undefined
       if (slugArg) {
-        picked = findTemplate(index, slugArg)
+        const match = findTemplate(index, slugArg)
+        if (match && !isStandalone(match)) {
+          // The slug exists but needs a provisioned backend — the CLI can't
+          // scaffold it unattended yet. Don't lay down a project that won't build.
+          throw new Error(
+            `Template '${slugArg}' needs a provisioned backend (${match.requires?.join(', ')}) ` +
+              `and isn't supported by \`kodena init\` yet. ` +
+              `Standalone templates: ${available.map((t) => t.slug).join(', ') || '(none)'}.`,
+          )
+        }
+        picked = match
         if (!picked) {
-          const available = index.templates.map((t) => t.slug).join(', ')
-          throw new Error(`Template '${slugArg}' not found. Available: ${available}.`)
+          throw new Error(
+            `Template '${slugArg}' not found. Available: ${available.map((t) => t.slug).join(', ') || '(none)'}.`,
+          )
         }
       } else {
         const chosen = await pickTemplateInteractively(index)
@@ -127,12 +149,17 @@ async function pickTemplateInteractively(
       'No template slug given and not running interactively. Pass one: `kodena init <slug>`.',
     )
   }
-  const defaultIdx = index.templates.findIndex((t) => t.default)
+  // Offer only templates the CLI can scaffold + deploy unattended.
+  const templates = standaloneTemplates(index)
+  if (templates.length === 0) {
+    throw new Error('No standalone templates are available to scaffold yet.')
+  }
+  const defaultIdx = templates.findIndex((t) => t.default)
   const { picked } = await prompts({
     type: 'select',
     name: 'picked',
     message: 'Pick a template to scaffold',
-    choices: index.templates.map((t) => ({
+    choices: templates.map((t) => ({
       title: `${t.slug} — ${t.displayName}`,
       value: t.slug,
     })),

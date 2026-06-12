@@ -37,6 +37,11 @@ list (the recommended template is pre-selected). Pass `--ref <branch-or-tag>` to
 scaffold from a specific version, `--slug <name>` to set the generated script
 slug, or `--force` to scaffold into a non-empty directory.
 
+Only **standalone** templates (ones that deploy with no backend) are offered
+here. Templates that read content from a Kontena CMS project need that project
+provisioned first, so they're hidden from `kodena init` for now — they remain
+available through the hosted InstantPage site builder.
+
 ## Quick start
 
     cd path/to/your/next-app

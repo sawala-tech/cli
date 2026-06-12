@@ -10,6 +10,8 @@ import {
   fetchTemplatesIndex,
   findTemplate,
   generateKodenaConfig,
+  isStandalone,
+  standaloneTemplates,
 } from '../src/lib/templates'
 
 let workDir: string
@@ -48,11 +50,12 @@ const INDEX = {
   ref: 'main',
   templates: [
     {
-      slug: 'landing',
-      displayName: 'Landing (static)',
-      description: 'Static marketing page.',
-      path: 'landing',
+      slug: 'starter',
+      displayName: 'Starter (no CMS)',
+      description: 'Standalone static starter.',
+      path: 'starter',
       buildKind: 'static',
+      default: true,
     },
     {
       slug: 'landing-ssr',
@@ -60,7 +63,7 @@ const INDEX = {
       description: 'SSR landing page.',
       path: 'landing-ssr',
       buildKind: 'opennext',
-      default: true,
+      requires: ['kontena', 'formulir'],
     },
   ],
 }
@@ -68,8 +71,9 @@ const INDEX = {
 describe('fetchTemplatesIndex', () => {
   it('parses a valid index', async () => {
     const index = await fetchTemplatesIndex({ fetchImpl: jsonResponse(INDEX) })
-    expect(index.templates.map((t) => t.slug)).toEqual(['landing', 'landing-ssr'])
-    expect(findTemplate(index, 'landing-ssr')?.default).toBe(true)
+    expect(index.templates.map((t) => t.slug)).toEqual(['starter', 'landing-ssr'])
+    expect(findTemplate(index, 'starter')?.default).toBe(true)
+    expect(findTemplate(index, 'landing-ssr')?.requires).toEqual(['kontena', 'formulir'])
   })
 
   it('reports the HTTP status on a failed fetch', async () => {
@@ -82,6 +86,26 @@ describe('fetchTemplatesIndex', () => {
     await expect(
       fetchTemplatesIndex({ fetchImpl: jsonResponse({ templates: [] }) }),
     ).rejects.toThrow(/malformed/)
+  })
+})
+
+describe('standalone filtering', () => {
+  it('treats an absent or empty `requires` as standalone', () => {
+    expect(isStandalone({ slug: 'a', displayName: 'A', description: '', path: 'a', buildKind: 'static' })).toBe(true)
+    expect(
+      isStandalone({ slug: 'b', displayName: 'B', description: '', path: 'b', buildKind: 'static', requires: [] }),
+    ).toBe(true)
+  })
+
+  it('treats a non-empty `requires` as not standalone', () => {
+    expect(
+      isStandalone({ slug: 'c', displayName: 'C', description: '', path: 'c', buildKind: 'opennext', requires: ['kontena'] }),
+    ).toBe(false)
+  })
+
+  it('standaloneTemplates drops backend-dependent templates', async () => {
+    const index = await fetchTemplatesIndex({ fetchImpl: jsonResponse(INDEX) })
+    expect(standaloneTemplates(index).map((t) => t.slug)).toEqual(['starter'])
   })
 })
 

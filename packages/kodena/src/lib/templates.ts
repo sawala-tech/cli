@@ -27,6 +27,15 @@ const TemplateIndexEntry = z.object({
   path: z.string().min(1),
   buildKind: z.enum(['static', 'opennext']),
   default: z.boolean().optional(), // exactly one entry may mark itself as the picker default
+  /**
+   * Platform services this template reads from at build time (e.g. `kontena`,
+   * `formulir`). A template with a non-empty `requires` needs a provisioned
+   * backend before it can build, so `kodena init` cannot scaffold it
+   * unattended yet — those are hidden from the CLI until the provisioning
+   * path lands. An absent or empty array means "standalone" (deploys with no
+   * backend).
+   */
+  requires: z.array(z.string()).optional(),
 })
 
 const TemplatesIndex = z.object({
@@ -76,6 +85,21 @@ export async function fetchTemplatesIndex(
 /** Find a template by its user-facing slug, or undefined when absent. */
 export function findTemplate(index: TemplatesIndex, slug: string): TemplateIndexEntry | undefined {
   return index.templates.find((t) => t.slug === slug)
+}
+
+/**
+ * A "standalone" template needs no provisioned backend — it has no `requires`,
+ * or an empty one — so `kodena init` can scaffold and deploy it unattended.
+ * Templates that require Kontena/Formulir are hidden from the CLI until the
+ * provisioning path exists (they remain valid for the hosted site builder).
+ */
+export function isStandalone(t: TemplateIndexEntry): boolean {
+  return !t.requires || t.requires.length === 0
+}
+
+/** The subset of the index the CLI can scaffold today (standalone only). */
+export function standaloneTemplates(index: TemplatesIndex): TemplateIndexEntry[] {
+  return index.templates.filter(isStandalone)
 }
 
 /**
