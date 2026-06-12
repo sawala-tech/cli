@@ -17,6 +17,26 @@ One-off via `npx`:
 
 Requires **Node ≥ 20**.
 
+## Scaffold from a template
+
+Don't have a project yet? Start from a curated Kodena template:
+
+    kodena template list               # see what's available
+    kodena init                        # pick one interactively + a target dir
+    kodena init landing-ssr ./my-site  # or scaffold a specific one non-interactively
+
+    cd my-site
+    npm install
+    kodena deploy --build              # the generated kodena.json is ready to deploy
+
+`kodena init` downloads the chosen template's source from the public
+[`kodena-templates`](https://github.com/sawala-tech/kodena-templates) repo,
+writes it into the target directory, and generates a `kodena.json` so the very
+next `kodena deploy` works with no hand-editing. Omit the slug to choose from a
+list (the recommended template is pre-selected). Pass `--ref <branch-or-tag>` to
+scaffold from a specific version, `--slug <name>` to set the generated script
+slug, or `--force` to scaffold into a non-empty directory.
+
 ## Quick start
 
     cd path/to/your/next-app
@@ -44,6 +64,8 @@ custom hostname attached to the script.
 | `kodena org use <slug>` | Set the active org. Validates membership before writing. |
 | `kodena project list` | List projects in the active org (first 100). |
 | `kodena project use <slug>` | Set the active project for the active org. |
+| `kodena template list` | List the starter templates you can scaffold with `kodena init`. |
+| `kodena init [slug] [dir]` | Scaffold a local project from a template (omit the slug to pick interactively). Generates a ready-to-deploy `kodena.json`. |
 | `kodena deploy` | Upload the bundle (`worker.js` + assets) described by `kodena.json` to the active org/project. Creates the script on first deploy. |
 
 ### `deploy` flags
