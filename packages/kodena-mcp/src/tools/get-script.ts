@@ -39,6 +39,9 @@ interface ScriptDetail {
   worker_module_size: number | null
   vars_parsed?: Record<string, string>
   compatibility_flags_parsed?: string[]
+  // Names of the worker's secret_text bindings (never values). Always present
+  // from the backend (defaults to []).
+  secretNames?: string[]
   compatibility_date: string | null
   tenant_subdomain?: string
   dispatched_name?: string
@@ -74,6 +77,8 @@ export const getScriptTool: ToolDefinition<z.infer<typeof slugSchema>> = {
       assetsManifest: row.assets_manifest_parsed,
       workerModuleSize: row.worker_module_size,
       vars: row.vars_parsed,
+      // Names only — the value of a secret is never returned by the backend.
+      secretNames: row.secretNames ?? [],
       compatibilityFlags: row.compatibility_flags_parsed,
       compatibilityDate: row.compatibility_date,
       createdAt: row.created_on,
