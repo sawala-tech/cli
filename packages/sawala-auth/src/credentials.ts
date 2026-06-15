@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { z } from 'zod'
 import type { Brand } from './brand'
 import { configDir } from './paths'
+import { isSecureApiBase } from './api-base'
 
 /**
  * CLI tokens carry the `koda_` prefix for both brands today — kodena and
@@ -13,7 +14,11 @@ export const TOKEN_PATTERN = /^koda_[A-Z2-7]{32}$/
 
 const CredentialsSchema = z.object({
   token: z.string().regex(TOKEN_PATTERN),
-  apiBase: z.string().url(),
+  // Must be transport-secure: the token is sent on every request, so a tampered
+  // credentials file pointing at an http:// host (non-loopback) is rejected.
+  apiBase: z.string().url().refine(isSecureApiBase, {
+    message: 'apiBase must use https:// (http:// allowed only for localhost)',
+  }),
   savedAt: z.string(),
   scopeOrgId: z.string().nullable(),
   scopeOrgSlug: z.string().nullable(),
