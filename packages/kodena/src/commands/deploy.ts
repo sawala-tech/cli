@@ -14,6 +14,7 @@ import type { KodenaConfig } from '../lib/config-file'
 import {
   readWorkerEntry,
   summarise,
+  validateSecrets,
   validateVars,
   walkAssets,
   type WorkerBundle,
@@ -34,6 +35,7 @@ interface DeployOptions {
   token?: string
   apiBase?: string
   var?: string[]
+  secret?: string[]
   compatFlag?: string[]
   compatDate?: string
   dryRun?: boolean
@@ -58,6 +60,15 @@ export function createDeployCommand(): Command {
     .option(
       '--var <KEY=value>',
       'Set a worker var. Repeatable.',
+      (val: string, prev: string[] = []) => {
+        prev.push(val)
+        return prev
+      },
+    )
+    .option(
+      '--secret <KEY=value>',
+      'Set a worker secret (encrypted, hidden from get_script). Repeatable. ' +
+        'For day-to-day rotation prefer `kodena secret put` (no rebuild).',
       (val: string, prev: string[] = []) => {
         prev.push(val)
         return prev
@@ -134,6 +145,20 @@ export function createDeployCommand(): Command {
       const vars = buildVars(config, options.var)
       validateVars(vars)
 
+      // Secrets come ONLY from --secret flags — never from kodena.json, which
+      // would put plaintext secrets in a committed file. Values are never
+      // printed; a key shared with --var fails fast before any network call.
+      const secrets = buildSecrets(options.secret)
+      validateSecrets(secrets)
+      if (vars && secrets) {
+        const collision = Object.keys(secrets).find((k) => k in vars)
+        if (collision) {
+          throw new Error(
+            `'${collision}' is set as both --var and --secret. A binding name must be one or the other.`,
+          )
+        }
+      }
+
       const compatibilityFlags =
         (options.compatFlag as Array<'nodejs_compat' | 'nodejs_als'> | undefined) ??
         config.compatibilityFlags
@@ -164,6 +189,9 @@ export function createDeployCommand(): Command {
         if (vars && Object.keys(vars).length > 0) {
           process.stdout.write('! Ignoring vars — static (kind:assets) deploys have no worker.\n')
         }
+        if (secrets && Object.keys(secrets).length > 0) {
+          process.stdout.write('! Ignoring secrets — static (kind:assets) deploys have no worker.\n')
+        }
         if ((compatibilityFlags && compatibilityFlags.length > 0) || compatibilityDate) {
           process.stdout.write('! Ignoring compatibility flags/date — static deploys have no worker.\n')
         }
@@ -175,6 +203,7 @@ export function createDeployCommand(): Command {
         const assets = await walkAssets(assetsDir)
         const wb: WorkerBundle = { kind: 'worker-bundle', scriptContent: worker.content, assets }
         if (vars && Object.keys(vars).length > 0) wb.vars = vars
+        if (secrets && Object.keys(secrets).length > 0) wb.secrets = secrets
         if (compatibilityFlags && compatibilityFlags.length > 0) wb.compatibilityFlags = compatibilityFlags
         if (compatibilityDate) wb.compatibilityDate = compatibilityDate
         bundle = wb
@@ -190,6 +219,11 @@ export function createDeployCommand(): Command {
         process.stdout.write(
           `✓ Bundle ready: static — ${stats.assetCount} assets (${humanBytes(stats.assetsTotalBytes)} total)\n`,
         )
+      }
+
+      // Names only — a secret value is never printed.
+      if (bundle.kind === 'worker-bundle' && bundle.secrets) {
+        process.stdout.write(`  Secrets: ${Object.keys(bundle.secrets).join(', ')}\n`)
       }
 
       if (options.dryRun) {
@@ -299,6 +333,25 @@ function buildVars(
   return Object.keys(merged).length > 0 ? merged : undefined
 }
 
+/**
+ * Parse `--secret KEY=value` flags into a secrets map. Unlike vars, secrets
+ * are NOT read from kodena.json — keeping plaintext secrets out of a committed
+ * config file. Returns undefined when no secret flags were given.
+ */
+function buildSecrets(flagSecrets: string[] | undefined): Record<string, string> | undefined {
+  if (!flagSecrets || flagSecrets.length === 0) return undefined
+  const merged: Record<string, string> = {}
+  for (const entry of flagSecrets) {
+    const eq = entry.indexOf('=')
+    if (eq < 0) {
+      // Never echo the raw entry — it carries a secret value. Name the form only.
+      throw new Error('--secret must be in the form KEY=value.')
+    }
+    merged[entry.slice(0, eq)] = entry.slice(eq + 1)
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined
+}
+
 function redactBundle(bundle: DeployBundle): unknown {
   const stats = summarise(bundle)
   const assets = `<${stats.assetCount} files, ${humanBytes(stats.assetsTotalBytes)} total>`
@@ -310,6 +363,8 @@ function redactBundle(bundle: DeployBundle): unknown {
     scriptContent: `<base64 elided, ${humanBytes(stats.workerBytes)} decoded>`,
     assets,
     vars: bundle.vars,
+    // Names only — secret VALUES must never appear in the dry-run transcript.
+    secrets: bundle.secrets ? Object.keys(bundle.secrets) : undefined,
     compatibilityFlags: bundle.compatibilityFlags,
     compatibilityDate: bundle.compatibilityDate,
   }

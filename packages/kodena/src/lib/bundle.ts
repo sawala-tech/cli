@@ -23,6 +23,9 @@ export interface WorkerBundle {
   scriptContent: string
   assets: AssetFile[]
   vars?: Record<string, string>
+  // Write-only secret_text bindings. Sent in the deploy body; never persisted
+  // in cleartext by the backend and never echoed by the CLI.
+  secrets?: Record<string, string>
   compatibilityFlags?: Array<'nodejs_compat' | 'nodejs_als'>
   compatibilityDate?: string
 }
@@ -116,17 +119,30 @@ export async function walkAssets(assetsDir: string): Promise<AssetFile[]> {
  * the deploy request.
  */
 export function validateVars(vars: Record<string, string> | undefined): void {
-  if (!vars) return
-  for (const [k, v] of Object.entries(vars)) {
+  validateBindingMap(vars, 'vars')
+}
+
+/**
+ * Validate `secrets` against the same regex/size constraints as vars. Kept
+ * separate from validateVars so error messages say "secrets"; the value is
+ * never included in any message.
+ */
+export function validateSecrets(secrets: Record<string, string> | undefined): void {
+  validateBindingMap(secrets, 'secrets')
+}
+
+// Shared key-regex + value-size check for both vars and secrets. The value is
+// NEVER interpolated into an error (matters for secrets) — only its key.
+function validateBindingMap(map: Record<string, string> | undefined, label: string): void {
+  if (!map) return
+  for (const [k, v] of Object.entries(map)) {
     if (!VAR_KEY_PATTERN.test(k)) {
       throw new Error(
-        `vars key '${k}' must match /^[A-Z][A-Z0-9_]*$/ (uppercase letter, then uppercase letters / digits / underscores).`,
+        `${label} key '${k}' must match /^[A-Z][A-Z0-9_]*$/ (uppercase letter, then uppercase letters / digits / underscores).`,
       )
     }
     if (Buffer.byteLength(v, 'utf8') > VAR_VALUE_MAX_BYTES) {
-      throw new Error(
-        `vars value for '${k}' exceeds ${VAR_VALUE_MAX_BYTES} bytes (8 KiB).`,
-      )
+      throw new Error(`${label} value for '${k}' exceeds ${VAR_VALUE_MAX_BYTES} bytes (8 KiB).`)
     }
   }
 }

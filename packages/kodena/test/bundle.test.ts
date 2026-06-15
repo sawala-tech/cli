@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   readWorkerEntry,
   summarise,
+  validateSecrets,
   validateVars,
   walkAssets,
   type WorkerBundle,
@@ -97,6 +98,29 @@ describe('validateVars', () => {
 
   it('accepts undefined (no-op)', () => {
     expect(() => validateVars(undefined)).not.toThrow()
+  })
+})
+
+describe('validateSecrets', () => {
+  it('passes through valid secrets and says "secrets" (not "vars") on error', () => {
+    expect(() => validateSecrets({ CLERK_SECRET_KEY: 'sk_test' })).not.toThrow()
+    expect(() => validateSecrets({ lower: 'v' })).toThrow(/secrets key/)
+  })
+
+  it('rejects oversized values without echoing the value', () => {
+    const big = 'x'.repeat(8 * 1024 + 1)
+    try {
+      validateSecrets({ KEY: big })
+      throw new Error('should have thrown')
+    } catch (e) {
+      const msg = (e as Error).message
+      expect(msg).toMatch(/8 KiB|8192/)
+      expect(msg).not.toContain(big) // never echo the value
+    }
+  })
+
+  it('accepts undefined (no-op)', () => {
+    expect(() => validateSecrets(undefined)).not.toThrow()
   })
 })
 
