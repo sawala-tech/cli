@@ -1,5 +1,15 @@
 # @sawala/mcp
 
+## 0.2.1
+
+### Patch Changes
+
+- 313576b: Security: reject non-https API base URLs. The CLI attaches the long-lived auth
+  token to every request, so `--api-base`, the `*_API_BASE` env var, and a stored
+  `credentials.apiBase` must now resolve to `https://` (`http://` is allowed only
+  for localhost / loopback). A tampered or misconfigured cleartext base is refused
+  with a clear error instead of silently transmitting the token in the clear.
+
 ## 0.2.0
 
 ### Minor Changes
