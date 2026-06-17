@@ -29,3 +29,6 @@ export type { CliContext, CliOptions, TokenSource } from './resolve'
 
 export { ApiError, apiFetch } from './api'
 export type { ApiCallOptions } from './api'
+
+export { browserLogin } from './browser-login'
+export type { BrowserLoginOptions, BrowserLoginResult } from './browser-login'

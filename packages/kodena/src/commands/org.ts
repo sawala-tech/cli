@@ -2,7 +2,12 @@ import { Command } from 'commander'
 import prompts from 'prompts'
 import { apiFetch } from '../lib/api'
 import { updateConfig } from '../lib/config'
-import { loadContext, TokenScopeMismatchError, type CliContext } from '../lib/resolve'
+import {
+  loadContext,
+  requireActiveOrg,
+  TokenScopeMismatchError,
+  type CliContext,
+} from '../lib/resolve'
 
 export interface OrgSummary {
   id: string
@@ -83,6 +88,32 @@ export function createOrgCommand(): Command {
         const project = await resolveProjectForOrg(ctx, target)
         await updateConfig({ activeProject: project.slug, activeProjectId: project.id })
       }
+    })
+
+  org
+    .command('handle [value]')
+    .description(
+      "Show or set the active org's Kodena handle — the `<slug>-<handle>.kodena.id` segment. Immutable once set.",
+    )
+    .action(async (value: string | undefined) => {
+      const ctx = await loadContext()
+      requireActiveOrg(ctx)
+
+      if (!value) {
+        const { handle } = await apiFetch<{ handle: string | null }>(ctx, '/kodena/org-handle')
+        process.stdout.write(
+          handle
+            ? `${handle}\n`
+            : 'No handle set for this org yet. Claim one with `kodena org handle <value>`.\n',
+        )
+        return
+      }
+
+      const res = await apiFetch<{ handle: string }>(ctx, '/kodena/org-handle', {
+        method: 'PUT',
+        body: { handle: value },
+      })
+      process.stdout.write(`Org handle set: ${res.handle}\n`)
     })
 
   return org
