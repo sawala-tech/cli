@@ -1,6 +1,17 @@
 import type { ToolDefinition } from './types'
 import { berkasnaGetAssetTool } from './berkasna-get-asset'
 import { berkasnaListAssetsTool } from './berkasna-list-assets'
+import { datanaCreateCollectionTool } from './datana-create-collection'
+import { datanaCreateRecordTool } from './datana-create-record'
+import { datanaDeleteRecordTool } from './datana-delete-record'
+import { datanaGetCollectionTool } from './datana-get-collection'
+import { datanaGetRecordTool } from './datana-get-record'
+import { datanaListCollectionsTool } from './datana-list-collections'
+import { datanaListRecordsTool } from './datana-list-records'
+import { datanaPublishRecordTool } from './datana-publish-record'
+import { datanaUnpublishRecordTool } from './datana-unpublish-record'
+import { datanaUpdateCollectionTool } from './datana-update-collection'
+import { datanaUpdateRecordTool } from './datana-update-record'
 import { formulirGetFormTool } from './formulir-get-form'
 import { formulirGetSubmissionTool } from './formulir-get-submission'
 import { formulirListFormsTool } from './formulir-list-forms'
@@ -47,6 +58,19 @@ export const ALL_TOOLS: ReadonlyArray<ToolDefinition<unknown>> = [
   formulirGetSubmissionTool,
   berkasnaListAssetsTool,
   berkasnaGetAssetTool,
+  // Datana — read
+  datanaListCollectionsTool,
+  datanaGetCollectionTool,
+  datanaListRecordsTool,
+  datanaGetRecordTool,
+  // Datana — write
+  datanaCreateCollectionTool,
+  datanaUpdateCollectionTool,
+  datanaCreateRecordTool,
+  datanaUpdateRecordTool,
+  datanaPublishRecordTool,
+  datanaUnpublishRecordTool,
+  datanaDeleteRecordTool,
 ] as ReadonlyArray<ToolDefinition<unknown>>
 
 export const TOOLS_BY_NAME: ReadonlyMap<string, ToolDefinition<unknown>> = new Map(
