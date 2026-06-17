@@ -1,12 +1,15 @@
 import { Command } from 'commander'
 import pkg from '../package.json'
+import { createAssetCommand } from './commands/asset'
 import { createDeployCommand } from './commands/deploy'
+import { createDomainCommand } from './commands/domain'
 import { createLoginCommand } from './commands/login'
 import { createLogoutCommand } from './commands/logout'
 import { createOrgCommand } from './commands/org'
 import { createProjectCommand } from './commands/project'
 import { createScriptCommand } from './commands/script'
 import { createSecretCommand } from './commands/secret'
+import { createSlugCommand } from './commands/slug'
 import { createInitCommand, createTemplateCommand } from './commands/template'
 import { createWhoamiCommand } from './commands/whoami'
 
@@ -23,7 +26,10 @@ export function createProgram(): Command {
   program.addCommand(createOrgCommand())
   program.addCommand(createProjectCommand())
   program.addCommand(createScriptCommand())
+  program.addCommand(createAssetCommand())
+  program.addCommand(createDomainCommand())
   program.addCommand(createSecretCommand())
+  program.addCommand(createSlugCommand())
   program.addCommand(createDeployCommand())
   program.addCommand(createTemplateCommand())
   program.addCommand(createInitCommand())
