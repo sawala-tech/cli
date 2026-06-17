@@ -57,7 +57,7 @@ describe('listToolsHandler', () => {
     expect(names).toContain('sawala_whoami')
   })
 
-  it('exposes every registered tool in the expected order (whoami + kontena read + kontena write + formulir + berkasna)', async () => {
+  it('exposes every registered tool in the expected order (whoami + orgs/projects + kontena + formulir + berkasna + datana)', async () => {
     const result = await listToolsHandler()
     const names = result.tools.map((t) => t.name)
     expect(names).toEqual([
@@ -82,12 +82,23 @@ describe('listToolsHandler', () => {
       'sawala_formulir_get_submission',
       'sawala_berkasna_list_assets',
       'sawala_berkasna_get_asset',
+      'sawala_datana_list_collections',
+      'sawala_datana_get_collection',
+      'sawala_datana_list_records',
+      'sawala_datana_get_record',
+      'sawala_datana_create_collection',
+      'sawala_datana_update_collection',
+      'sawala_datana_create_record',
+      'sawala_datana_update_record',
+      'sawala_datana_publish_record',
+      'sawala_datana_unpublish_record',
+      'sawala_datana_delete_record',
     ])
   })
 
   it('advertises every registered tool with name/description/inputSchema/annotations', async () => {
     const result = await listToolsHandler()
-    expect(result.tools.length).toBe(21)
+    expect(result.tools.length).toBe(32)
     for (const tool of result.tools) {
       expect(tool.name).toMatch(/^sawala_/)
       expect(typeof tool.description).toBe('string')
