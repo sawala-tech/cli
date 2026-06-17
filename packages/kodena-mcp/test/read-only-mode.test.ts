@@ -42,14 +42,14 @@ describe('isReadOnlyMode', () => {
     expect(isReadOnlyMode()).toBe(true)
   })
 
-  it('off → tools/list exposes all 18 tools', async () => {
+  it('off → tools/list exposes all 20 tools', async () => {
     const { ALL_TOOLS } = await loadToolsModule({ readOnly: false })
-    expect(ALL_TOOLS).toHaveLength(18)
+    expect(ALL_TOOLS).toHaveLength(20)
   })
 
-  it('on → tools/list exposes only the 8 read-only tools', async () => {
+  it('on → tools/list exposes only the 10 read-only tools', async () => {
     const { ALL_TOOLS } = await loadToolsModule({ readOnly: true })
-    expect(ALL_TOOLS).toHaveLength(8)
+    expect(ALL_TOOLS).toHaveLength(10)
     for (const tool of ALL_TOOLS) {
       expect(tool.annotations.readOnlyHint).toBe(true)
     }

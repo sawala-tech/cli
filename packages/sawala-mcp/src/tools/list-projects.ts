@@ -1,0 +1,52 @@
+import { apiFetch } from '../lib/api-client'
+import type { CliContext } from '../lib/auth'
+import {
+  EMPTY_INPUT_SCHEMA,
+  emptyInputParser,
+  type ToolDefinition,
+} from './types'
+
+interface ProjectSummary {
+  id: string
+  slug: string
+  name: string
+}
+
+interface PaginatedProjects {
+  items: ProjectSummary[]
+  nextCursor: string | null
+}
+
+export const listProjectsTool: ToolDefinition<Record<string, never>> = {
+  name: 'sawala_list_projects',
+  description:
+    'List projects in the active organisation. A "project" is a Sawala-level grouping ' +
+    'that controls which `x-project-id` subsequent calls send. Use this when the user ' +
+    'asks "what projects do I have" or before switching project context. Requires an ' +
+    'active org (set via `sawala org use` or the SAWALA_ORG env var). Takes no input. ' +
+    'To switch the active project for subsequent tool calls, either (a) run ' +
+    '`sawala project use <slug>` in a shell — safe, local-only write to ~/.sawala/config, ' +
+    'picked up on the next tool call without restarting the host; or (b) restart the MCP ' +
+    'host with `SAWALA_PROJECT=<slug>` in the server env. Prefer (a) when a shell is ' +
+    'available; use (b) for shell-less hosts.',
+  inputSchema: EMPTY_INPUT_SCHEMA,
+  annotations: { title: 'List projects', readOnlyHint: true },
+  parseInput: emptyInputParser,
+  async handle(_input: Record<string, never>, ctx: CliContext) {
+    const result = await apiFetch<PaginatedProjects>(
+      ctx,
+      '/cli/organization/projects?limit=100',
+    )
+    return {
+      activeOrg: ctx.activeOrg,
+      activeProject: ctx.activeProject,
+      projects: result.items.map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        isActive: p.slug === ctx.activeProject,
+      })),
+      nextCursor: result.nextCursor,
+    }
+  },
+}

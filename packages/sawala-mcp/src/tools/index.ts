@@ -17,6 +17,8 @@ import { kontenaPublishEntryTool } from './kontena-publish-entry'
 import { kontenaUnpublishEntryTool } from './kontena-unpublish-entry'
 import { kontenaUpdateEntryTool } from './kontena-update-entry'
 import { kontenaUpdateSchemaTool } from './kontena-update-schema'
+import { listOrgsTool } from './list-orgs'
+import { listProjectsTool } from './list-projects'
 import { whoamiTool } from './whoami'
 
 /**
@@ -25,6 +27,8 @@ import { whoamiTool } from './whoami'
  */
 export const ALL_TOOLS: ReadonlyArray<ToolDefinition<unknown>> = [
   whoamiTool,
+  listOrgsTool,
+  listProjectsTool,
   kontenaListSchemasTool,
   kontenaGetSchemaTool,
   kontenaCreateSchemaTool,
