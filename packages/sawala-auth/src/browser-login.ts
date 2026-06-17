@@ -33,6 +33,13 @@ export interface BrowserLoginOptions {
   apiBase: string
   /** Dashboard base, e.g. https://sawala.cloud — where `/cli-login` lives. */
   webBase: string
+  /**
+   * Which CLI surface is logging in. Sent to the `/cli-login` page as
+   * `?brand=` so it can show the matching brand name ("Kodena CLI" /
+   * "Sawala CLI") and command. Does not affect the token itself — both brands
+   * share one token store.
+   */
+  brand: 'kodena' | 'sawala'
   /** Human label for the token, e.g. `kodena CLI · my-host`. */
   label: string
   /** How long to wait for the browser callback before giving up. Default 5 min. */
@@ -55,6 +62,7 @@ export async function browserLogin(opts: BrowserLoginOptions): Promise<BrowserLo
       `${opts.webBase.replace(/\/$/, '')}/cli-login` +
       `?state=${encodeURIComponent(state)}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&brand=${encodeURIComponent(opts.brand)}` +
       `&label=${encodeURIComponent(opts.label)}`
 
     opts.onUrl?.(authorizeUrl)
@@ -170,7 +178,13 @@ function waitForCallback(
 function openInBrowser(url: string): void {
   const opener = platform() === 'darwin' ? 'open' : platform() === 'win32' ? 'start' : 'xdg-open'
   try {
-    spawn(opener, [url], { detached: true, stdio: 'ignore' }).unref()
+    const child = spawn(opener, [url], { detached: true, stdio: 'ignore' })
+    // A missing opener (e.g. headless box with no xdg-open) is reported via an
+    // async 'error' event, NOT a synchronous throw — without this listener it
+    // becomes an unhandled error that crashes the CLI. Swallow it: the caller
+    // also prints the URL for manual paste, and the loopback flow falls back.
+    child.on('error', () => {})
+    child.unref()
   } catch {
     // Non-fatal: the caller also prints the URL for manual paste.
   }
