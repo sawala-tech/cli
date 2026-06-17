@@ -45,10 +45,13 @@ export const setCustomDomainTool: ToolDefinition<z.infer<typeof inputZod>> = {
   },
   parseInput: zodParser(inputZod),
   async handle({ slug, domain }, ctx: CliContext) {
+    // The backend route reads `body.hostname` (see sawala-cloud-core
+    // services/kodena/src/routes/scripts.ts) — sending `{ domain }` is rejected
+    // with MISSING_HOSTNAME. Map the tool's `domain` input to `hostname`.
     return apiFetch(
       ctx,
       `/kodena/scripts/${encodeURIComponent(slug)}/custom-domain`,
-      { method: 'POST', body: { domain } },
+      { method: 'POST', body: { hostname: domain } },
     )
   },
 }
