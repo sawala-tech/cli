@@ -70,6 +70,7 @@ export function createLoginCommand(): Command {
             const browser = await browserLogin({
               apiBase,
               webBase,
+              brand: 'kodena',
               label: `kodena CLI · ${hostname()}`,
               onUrl: (url) =>
                 process.stdout.write(
