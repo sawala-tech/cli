@@ -518,7 +518,8 @@ describe('kodena_set_custom_domain', () => {
     ]
     expect(url).toBe('https://api.sawala.cloud/kodena/scripts/my-blog/custom-domain')
     expect(init.method).toBe('POST')
-    expect(JSON.parse(init.body)).toEqual({ domain: 'blog.acme.com' })
+    // Backend reads body.hostname — the tool maps its `domain` input to `hostname`.
+    expect(JSON.parse(init.body)).toEqual({ hostname: 'blog.acme.com' })
   })
 
   it('carries openWorldHint (affects DNS)', () => {
