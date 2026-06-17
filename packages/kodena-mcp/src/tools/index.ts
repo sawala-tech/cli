@@ -2,12 +2,14 @@ import { checkSlugAvailableTool } from './check-slug-available'
 import { createScriptTool } from './create-script'
 import { deleteScriptTool } from './delete-script'
 import { deployScriptTool } from './deploy-script'
+import { getAssetTool } from './get-asset'
 import { getCustomDomainStatusTool } from './get-custom-domain-status'
 import { getOrgHandleTool } from './get-org-handle'
 import { getScriptTool } from './get-script'
 import { listOrgsTool } from './list-orgs'
 import { listProjectsTool } from './list-projects'
 import { listScriptsTool } from './list-scripts'
+import { listSecretsTool } from './list-secrets'
 import { patchAssetsTool } from './patch-assets'
 import { rebuildAssetsManifestTool } from './rebuild-assets-manifest'
 import { rehydrateScriptTool } from './rehydrate-script'
@@ -33,6 +35,8 @@ const ALL_TOOLS_UNFILTERED: ReadonlyArray<ToolDefinition<unknown>> = [
   listProjectsTool,
   listScriptsTool,
   getScriptTool,
+  getAssetTool,
+  listSecretsTool,
   checkSlugAvailableTool,
   getOrgHandleTool,
   getCustomDomainStatusTool,

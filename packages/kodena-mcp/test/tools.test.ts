@@ -34,12 +34,12 @@ function mockFetch(response: { status: number; body: unknown }): ReturnType<type
 }
 
 describe('tool registry', () => {
-  it('exposes 8 read (M2) + 3 non-destructive write (M3) + 7 destructive (M4) tools', () => {
-    expect(ALL_TOOLS).toHaveLength(18)
+  it('exposes 10 read (M2) + 3 non-destructive write (M3) + 7 destructive (M4) tools', () => {
+    expect(ALL_TOOLS).toHaveLength(20)
     const readOnly = ALL_TOOLS.filter((t) => t.annotations.readOnlyHint === true)
     const writes = ALL_TOOLS.filter((t) => t.annotations.readOnlyHint === false)
     const destructive = ALL_TOOLS.filter((t) => t.annotations.destructiveHint === true)
-    expect(readOnly).toHaveLength(8)
+    expect(readOnly).toHaveLength(10)
     expect(writes).toHaveLength(10)
     expect(destructive).toHaveLength(7)
     // delete_script is the only irreversibleHint.
@@ -624,5 +624,104 @@ describe('kodena_rehydrate_script', () => {
     const [url, init] = mock.mock.calls[0] as unknown as [string, { method: string }]
     expect(url).toBe('https://api.sawala.cloud/kodena/scripts/my-blog/rehydrate')
     expect(init.method).toBe('POST')
+  })
+})
+
+// Raw-bytes fetch mock for kodena_get_asset: lets a test set content-type and
+// an arbitrary body (string or Buffer), unlike mockFetch's JSON-only helper.
+function mockRawFetch(opts: {
+  status: number
+  contentType?: string
+  body?: string | Buffer
+}): ReturnType<typeof vi.fn> {
+  const mock = vi.fn(async () => {
+    const headers: Record<string, string> = {}
+    if (opts.contentType) headers['content-type'] = opts.contentType
+    return new Response(opts.body ?? '', { status: opts.status, headers })
+  })
+  vi.stubGlobal('fetch', mock)
+  return mock
+}
+
+describe('kodena_list_secrets', () => {
+  const tool = TOOLS_BY_NAME.get('kodena_list_secrets')!
+
+  it('is read-only', () => {
+    expect(tool.annotations.readOnlyHint).toBe(true)
+  })
+
+  it('returns names only and URL-encodes the slug', async () => {
+    const mock = mockFetch({ status: 200, body: { secretNames: ['API_KEY', 'DB_URL'] } })
+    const result = (await tool.handle(tool.parseInput({ slug: 'my blog' }), ctx)) as Record<
+      string,
+      unknown
+    >
+    expect(mock.mock.calls[0]?.[0]).toBe(
+      'https://api.sawala.cloud/kodena/scripts/my%20blog/secrets',
+    )
+    expect(result).toEqual({ slug: 'my blog', secretNames: ['API_KEY', 'DB_URL'] })
+  })
+})
+
+describe('kodena_get_asset', () => {
+  const tool = TOOLS_BY_NAME.get('kodena_get_asset')!
+
+  it('is read-only and requires slug + path', () => {
+    expect(tool.annotations.readOnlyHint).toBe(true)
+    expect(() => tool.parseInput({ slug: 'ok' })).toThrow(/Invalid tool input/)
+    expect(() => tool.parseInput({ slug: 'ok', path: '' })).toThrow(/path is required/)
+  })
+
+  it('builds the proxy URL, normalises the path, and sends scoping headers', async () => {
+    const mock = mockRawFetch({ status: 200, contentType: 'text/html', body: '<h1>hi</h1>' })
+    await tool.handle(tool.parseInput({ slug: 'my blog', path: 'index.html' }), ctx)
+    const [url, init] = mock.mock.calls[0] as unknown as [string, { headers: Record<string, string> }]
+    expect(url).toBe(
+      'https://api.sawala.cloud/kodena/scripts/my%20blog/assets/proxy?path=%2Findex.html',
+    )
+    expect(init.headers['Authorization']).toBe(`Bearer ${ctx.token}`)
+    expect(init.headers['x-org-id']).toBe('acme')
+    expect(init.headers['x-project-id']).toBe('blog')
+  })
+
+  it('returns text content as utf-8', async () => {
+    mockRawFetch({ status: 200, contentType: 'application/json', body: '{"a":1}' })
+    const result = (await tool.handle(
+      tool.parseInput({ slug: 's', path: '/data.json' }),
+      ctx,
+    )) as Record<string, unknown>
+    expect(result.encoding).toBe('utf-8')
+    expect(result.content).toBe('{"a":1}')
+    expect(result.truncated).toBe(false)
+  })
+
+  it('returns binary content base64-encoded', async () => {
+    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    mockRawFetch({ status: 200, contentType: 'image/png', body: bytes })
+    const result = (await tool.handle(
+      tool.parseInput({ slug: 's', path: '/logo.png' }),
+      ctx,
+    )) as Record<string, unknown>
+    expect(result.encoding).toBe('base64')
+    expect(result.content).toBe(bytes.toString('base64'))
+  })
+
+  it('caps the payload and flags truncation', async () => {
+    const big = 'a'.repeat(300 * 1024)
+    mockRawFetch({ status: 200, contentType: 'text/plain', body: big })
+    const result = (await tool.handle(
+      tool.parseInput({ slug: 's', path: '/big.txt' }),
+      ctx,
+    )) as Record<string, unknown>
+    expect(result.truncated).toBe(true)
+    expect((result.content as string).length).toBe(256 * 1024)
+    expect(result.byteLength).toBe(big.length)
+  })
+
+  it('throws ApiError on a non-ok response', async () => {
+    mockRawFetch({ status: 404, contentType: 'application/json', body: '{"error":"not_found"}' })
+    await expect(
+      tool.handle(tool.parseInput({ slug: 's', path: '/missing' }), ctx),
+    ).rejects.toThrow(/not_found/)
   })
 })
