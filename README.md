@@ -6,8 +6,8 @@ Sawala command-line tools — a monorepo of `@sawala/*` CLIs.
 
 ### Kodena (deployment)
 
-- [`@sawala/kodena`](./packages/kodena) — `kodena` CLI to deploy Cloudflare
-  Worker bundles (typically OpenNext-compiled Next.js apps) to
+- [`@sawala/kodena`](./packages/kodena) — `kodena` CLI to deploy worker bundles
+  (typically OpenNext-compiled Next.js apps) to
   [Kodena](https://kodena.sawala.cloud) from your terminal. Scaffolds from
   templates, manages secrets and custom domains.
 - [`@sawala/kodena-mcp`](./packages/kodena-mcp) — [Model Context Protocol](https://modelcontextprotocol.io)
