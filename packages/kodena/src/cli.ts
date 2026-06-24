@@ -6,6 +6,8 @@ import { createDomainCommand } from './commands/domain'
 import { createLoginCommand } from './commands/login'
 import { createLogoutCommand } from './commands/logout'
 import { createLogsCommand } from './commands/logs'
+import { createLoggingCommand } from './commands/logging'
+import { createEnvCommand } from './commands/env'
 import { createOrgCommand } from './commands/org'
 import { createProjectCommand } from './commands/project'
 import { createScriptCommand } from './commands/script'
@@ -28,6 +30,8 @@ export function createProgram(): Command {
   program.addCommand(createProjectCommand())
   program.addCommand(createScriptCommand())
   program.addCommand(createLogsCommand())
+  program.addCommand(createLoggingCommand())
+  program.addCommand(createEnvCommand())
   program.addCommand(createAssetCommand())
   program.addCommand(createDomainCommand())
   program.addCommand(createSecretCommand())
