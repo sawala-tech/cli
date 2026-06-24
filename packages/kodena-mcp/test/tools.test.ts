@@ -34,12 +34,12 @@ function mockFetch(response: { status: number; body: unknown }): ReturnType<type
 }
 
 describe('tool registry', () => {
-  it('exposes 10 read (M2) + 3 non-destructive write (M3) + 7 destructive (M4) tools', () => {
-    expect(ALL_TOOLS).toHaveLength(20)
+  it('exposes 11 read (M2 + logs) + 3 non-destructive write (M3) + 7 destructive (M4) tools', () => {
+    expect(ALL_TOOLS).toHaveLength(21)
     const readOnly = ALL_TOOLS.filter((t) => t.annotations.readOnlyHint === true)
     const writes = ALL_TOOLS.filter((t) => t.annotations.readOnlyHint === false)
     const destructive = ALL_TOOLS.filter((t) => t.annotations.destructiveHint === true)
-    expect(readOnly).toHaveLength(10)
+    expect(readOnly).toHaveLength(11)
     expect(writes).toHaveLength(10)
     expect(destructive).toHaveLength(7)
     // delete_script is the only irreversibleHint.

@@ -5,6 +5,7 @@ import { createDeployCommand } from './commands/deploy'
 import { createDomainCommand } from './commands/domain'
 import { createLoginCommand } from './commands/login'
 import { createLogoutCommand } from './commands/logout'
+import { createLogsCommand } from './commands/logs'
 import { createOrgCommand } from './commands/org'
 import { createProjectCommand } from './commands/project'
 import { createScriptCommand } from './commands/script'
@@ -26,6 +27,7 @@ export function createProgram(): Command {
   program.addCommand(createOrgCommand())
   program.addCommand(createProjectCommand())
   program.addCommand(createScriptCommand())
+  program.addCommand(createLogsCommand())
   program.addCommand(createAssetCommand())
   program.addCommand(createDomainCommand())
   program.addCommand(createSecretCommand())
