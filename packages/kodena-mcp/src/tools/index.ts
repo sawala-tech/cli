@@ -6,6 +6,7 @@ import { getAssetTool } from './get-asset'
 import { getCustomDomainStatusTool } from './get-custom-domain-status'
 import { getOrgHandleTool } from './get-org-handle'
 import { getScriptTool } from './get-script'
+import { getScriptLogsTool } from './get-script-logs'
 import { listOrgsTool } from './list-orgs'
 import { listProjectsTool } from './list-projects'
 import { listScriptsTool } from './list-scripts'
@@ -35,6 +36,7 @@ const ALL_TOOLS_UNFILTERED: ReadonlyArray<ToolDefinition<unknown>> = [
   listProjectsTool,
   listScriptsTool,
   getScriptTool,
+  getScriptLogsTool,
   getAssetTool,
   listSecretsTool,
   checkSlugAvailableTool,
