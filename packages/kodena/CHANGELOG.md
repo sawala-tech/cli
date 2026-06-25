@@ -1,5 +1,11 @@
 # @sawala/kodena
 
+## 0.9.0
+
+### Minor Changes
+
+- 0d3ae52: Add `kodena logging on|off <slug>` (toggle native Workers Logs capture without a redeploy; capture is off by default) and `kodena env list|set|unset <slug>` (manage a code script's environment variables, redeploying on change). Secrets already have `kodena secret`.
+
 ## 0.8.0
 
 ### Minor Changes
