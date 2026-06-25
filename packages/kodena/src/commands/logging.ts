@@ -2,43 +2,55 @@ import { Command } from 'commander'
 import { apiFetch } from '../lib/api'
 import { loadContext, requireActiveOrg, requireActiveProject } from '../lib/resolve'
 
-// Response of GET/PATCH /kodena/scripts/:slug — the derived row carries
-// logging_enabled (1/0). We only read the flag back for confirmation.
+// Response of PATCH /kodena/scripts/:slug/logging — the derived row carries the
+// logging level + mode; we read it back only for confirmation.
 interface ScriptRow {
   script_slug: string
   logging_enabled?: number
+  logging_mode?: string
 }
 
+type LoggingMode = 'off' | 'console' | 'all'
+
+const MODES: Array<{ mode: LoggingMode; summary: string }> = [
+  { mode: 'off', summary: 'no logs captured' },
+  { mode: 'console', summary: "the script's console.* output only" },
+  { mode: 'all', summary: 'console output + a summary line for every request' },
+]
+
 /**
- * `kodena logging on|off <slug>` — toggle native Workers Logs capture for one
- * script WITHOUT a redeploy. Capture is off by default; turning it on makes the
- * script's console.* output and per-request summaries readable via
- * `kodena logs <slug>`. Changes take a few seconds to apply at the edge.
+ * `kodena logging off|console|all <slug>` — set native Workers Logs capture for
+ * one script WITHOUT a redeploy. Capture is off by default.
+ *   off     → no logs captured
+ *   console → the script's console.* output only
+ *   all     → console output + a per-request summary line
+ * Turning capture on makes the output readable via `kodena logs <slug>`.
+ * Changes take a few seconds to apply at the edge.
  *
  * Project-scoped like every script command: the backend resolves the slug with
  * getScriptBySlug(org, project, slug), so the active org AND project must be set.
  */
 export function createLoggingCommand(): Command {
   const logging = new Command('logging').description(
-    'Turn native Workers Logs capture on or off for a script (default off).',
+    'Set native Workers Logs capture for a script: off | console | all (default off).',
   )
 
-  for (const state of ['on', 'off'] as const) {
+  for (const { mode, summary } of MODES) {
     logging
-      .command(state)
+      .command(mode)
       .argument('<slug>', 'The script slug.')
-      .description(`Turn logging ${state} for a script.`)
+      .description(`Set logging to "${mode}" — ${summary}.`)
       .action(async (slug: string) => {
         const ctx = await loadContext()
         requireActiveOrg(ctx)
         requireActiveProject(ctx)
         await apiFetch<ScriptRow>(ctx, `/kodena/scripts/${encodeURIComponent(slug)}/logging`, {
           method: 'PATCH',
-          body: { enabled: state === 'on' },
+          body: { mode },
         })
         process.stdout.write(
-          `✓ Logging ${state} for ${slug}. Changes apply within a few seconds.\n` +
-            (state === 'on' ? `  Read logs with: kodena logs ${slug}\n` : ''),
+          `✓ Logging set to "${mode}" for ${slug}. Changes apply within a few seconds.\n` +
+            (mode !== 'off' ? `  Read logs with: kodena logs ${slug}\n` : ''),
         )
       })
   }
