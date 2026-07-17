@@ -210,6 +210,35 @@ describe('sawala ajena flow pull / get', () => {
     expect(text).not.toContain('"passwords"')
     expect(JSON.parse(text).steps[0].config.hasPassword).toBe(true)
   })
+
+  // A per-step `enabled: false` (the disable toggle) must round-trip: pull writes
+  // it to disk, and push sends the document back with the flag intact, so an
+  // operator can turn one step off without editing the rest of the flow.
+  it('preserves a disabled step (enabled:false) through pull → push', async () => {
+    const disabledDoc = {
+      ...doc,
+      steps: [
+        { id: 's1', kind: 'transform', name: 'read', dependsOn: [], config: {} },
+        { id: 's2', kind: 'sebar_send', name: 'email', dependsOn: ['s1'], config: { to: 'a@b.com' }, enabled: false },
+      ],
+    }
+    const fetchMock = vi.fn(async () => jsonResponse(disabledDoc))
+    vi.stubGlobal('fetch', fetchMock)
+    const out = join(tmpDir, 'flow.json')
+
+    const capErr = captureStderr()
+    await run('ajena', 'flow', 'pull', FLOW_ID, '-o', out)
+    capErr.restore()
+    expect(JSON.parse(await fs.readFile(out, 'utf8')).steps[1].enabled).toBe(false)
+
+    // Push the pulled file back; the PUT body must still carry enabled:false.
+    const capOut = captureStdout()
+    await run('ajena', 'flow', 'push', FLOW_ID, '-f', out)
+    capOut.restore()
+    const [, init] = lastCall(fetchMock)
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body as string).steps[1].enabled).toBe(false)
+  })
 })
 
 describe('sawala ajena flow push', () => {

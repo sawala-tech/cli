@@ -47,6 +47,11 @@ interface FlowStep {
   name: string
   dependsOn: string[]
   config: Record<string, unknown>
+  // Per-step off switch (distinct from FlowDocument.enabled, the whole-flow
+  // switch). Absent or true = the step runs; false = it is skipped at run time
+  // with its config retained, so re-enabling is lossless. Round-trips through
+  // pull/push unchanged.
+  enabled?: boolean
 }
 
 interface FlowDocument {
