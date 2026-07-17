@@ -1,0 +1,5 @@
+---
+"@sawala/cli": minor
+---
+
+Add the `sawala ajena flow` command group, making an Ajena FLOW automation an editable JSON artifact instead of something only the dashboard's visual node editor can change: `pull` a flow to a file, edit it, `validate` it, and `push` it back — so a config change can be scripted, diffed, and code-reviewed. Commands: `list`, `get`, `pull`, `push`, `create`, `delete`, `validate`, plus `run`, `runs`, and `run-get` for a push→run→inspect-trace loop. Follows the existing `datana` conventions (`--file`/`-` stdin, `--data`, `--dry-run`, `--yes`). Two Ajena-specific behaviours: no projectId appears in the path (scope comes from the CLI token, so a foreign flow id 404s), and the pulled document is secret-free — an `extract_document` step's PDF passwords are never exported, and pushing the document back with those fields absent preserves them. `validate` and `push --check` exit non-zero and name the offending step and key, so they work as a CI gate. Requires the `/cli/ajena/*` gateway surface (sawala-cloud-core#325) to be deployed.
