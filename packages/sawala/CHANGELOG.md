@@ -1,5 +1,11 @@
 # @sawala/cli
 
+## 0.8.1
+
+### Patch Changes
+
+- 58b89e7: ajena flow: FlowDocument steps now carry an optional per-step `enabled` flag. A step with `enabled: false` is skipped at run time (its config retained), so `sawala ajena flow pull`/`push` round-trip a disabled step and you can toggle one step off without editing the rest of the flow.
+
 ## 0.8.0
 
 ### Minor Changes
