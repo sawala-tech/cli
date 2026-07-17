@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import pkg from '../package.json'
+import { createAjenaCommand } from './commands/ajena'
 import { createBerkasnaCommand } from './commands/berkasna'
 import { createDatanaCommand } from './commands/datana'
 import { createFormulirCommand } from './commands/formulir'
@@ -15,7 +16,7 @@ export function createProgram(): Command {
   program
     .name('sawala')
     .description(
-      'Sawala umbrella CLI — Kontena, Formulir, Berkasna, Datana, and Kodena under one roof.',
+      'Sawala umbrella CLI — Kontena, Formulir, Berkasna, Datana, Ajena, and Kodena under one roof.',
     )
     .version(pkg.version, '-v, --version', 'output the current CLI version')
 
@@ -28,6 +29,7 @@ export function createProgram(): Command {
   program.addCommand(createFormulirCommand())
   program.addCommand(createBerkasnaCommand())
   program.addCommand(createDatanaCommand())
+  program.addCommand(createAjenaCommand())
 
   return program
 }
