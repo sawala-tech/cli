@@ -1,5 +1,27 @@
 # @sawala/cli
 
+## 0.9.0
+
+### Minor Changes
+
+- 438d64a: Add `sawala datana pipeline` — the CLI surface for Datana's new append-only
+  analytical plane. `sawala datana pipeline create` creates a pipeline collection
+  (same typed-field schema as an operational collection, but flavored `pipeline`
+  and forced private), and `sawala datana pipeline push <collection>` ingests
+  events into it. The push payload can be a single event object, an array of
+  events, or an `{ events, dedupeKeys }` envelope; `--dedupe-keys a,b` names the
+  fields composing a per-event natural key so re-pushing the same source batch is
+  a no-op instead of a duplicate. Both commands support `--file`/`--data`,
+  `--dry-run`, and stdin (`--file -`).
+- 3eb9528: Add `sawala sebar inbound` commands to manage a friendly custom inbound email
+  domain. Point a dedicated subdomain you control at Sebar with `sawala sebar
+inbound domain set inbox.yourbrand.com` (it prints the single MX record to
+  publish), confirm DNS with `sawala sebar inbound domain verify`, then create
+  human-friendly addresses like `support@inbox.yourbrand.com` with `sawala sebar
+inbound address add` — no more unmemorable Postmark hash address. `show`,
+  `domain remove`, and `address list`/`remove` round out the surface; removals
+  require `--yes` when there is no TTY.
+
 ## 0.8.1
 
 ### Patch Changes
