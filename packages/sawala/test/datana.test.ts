@@ -304,3 +304,111 @@ describe('sawala datana record publish / unpublish / delete', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
+
+const EVENTS = (slug: string) => `${COLLECTIONS}/${slug}/events`
+
+describe('sawala datana pipeline', () => {
+  it('create forces flavor=pipeline and POSTs to /collections', async () => {
+    const body = { name: 'Convos', fields: [{ name: 'agent', type: 'text' }] }
+    const fetchMock = vi.fn(async () => jsonResponse({ id: 'col_1', ...body, flavor: 'pipeline' }, 201))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node', 'sawala', 'datana', 'pipeline', 'create', '--data', JSON.stringify(body),
+    ])
+    cap.restore()
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe(COLLECTIONS)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ ...body, flavor: 'pipeline' })
+  })
+
+  it('create --dry-run prints flavor=pipeline without calling fetch', async () => {
+    const body = { name: 'Convos', fields: [] }
+    const fetchMock = vi.fn(async () => jsonResponse({}, 200))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node', 'sawala', 'datana', 'pipeline', 'create', '--data', JSON.stringify(body), '--dry-run',
+    ])
+    cap.restore()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(JSON.parse(cap.lines.join('')).wouldSend).toEqual({
+      method: 'POST',
+      body: { ...body, flavor: 'pipeline' },
+    })
+  })
+
+  it('push wraps a single event object as { event } and POSTs to /events', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ written: 1, skipped: 0, received: 1 }, 202))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node', 'sawala', 'datana', 'pipeline', 'push', 'convos',
+      '--data', JSON.stringify({ agent: 'ana', conversations: 3 }),
+    ])
+    cap.restore()
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe(EVENTS('convos'))
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ event: { agent: 'ana', conversations: 3 } })
+  })
+
+  it('push wraps an array payload as { events }', async () => {
+    const events = [{ agent: 'ana' }, { agent: 'budi' }]
+    const fetchMock = vi.fn(async () => jsonResponse({ written: 2, skipped: 0, received: 2 }, 202))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node', 'sawala', 'datana', 'pipeline', 'push', 'convos', '--data', JSON.stringify(events),
+    ])
+    cap.restore()
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(init.body as string)).toEqual({ events })
+  })
+
+  it('push passes an { events, dedupeKeys } envelope through unchanged', async () => {
+    const envelope = { events: [{ agent: 'ana' }], dedupeKeys: ['agent'] }
+    const fetchMock = vi.fn(async () => jsonResponse({ written: 1, skipped: 0, received: 1 }, 202))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node', 'sawala', 'datana', 'pipeline', 'push', 'convos', '--data', JSON.stringify(envelope),
+    ])
+    cap.restore()
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(init.body as string)).toEqual(envelope)
+  })
+
+  it('push merges --dedupe-keys into the body', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ written: 1, skipped: 0, received: 1 }, 202))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node', 'sawala', 'datana', 'pipeline', 'push', 'convos',
+      '--data', JSON.stringify({ agent: 'ana' }), '--dedupe-keys', 'agent,month',
+    ])
+    cap.restore()
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(init.body as string)).toEqual({
+      event: { agent: 'ana' },
+      dedupeKeys: ['agent', 'month'],
+    })
+  })
+
+  it('push --dry-run prints the request without calling fetch', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({}, 202))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node', 'sawala', 'datana', 'pipeline', 'push', 'convos',
+      '--data', JSON.stringify({ agent: 'ana' }), '--dry-run',
+    ])
+    cap.restore()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(JSON.parse(cap.lines.join('')).wouldSend).toEqual({
+      method: 'POST',
+      body: { event: { agent: 'ana' } },
+    })
+  })
+})
