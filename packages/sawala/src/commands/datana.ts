@@ -75,6 +75,33 @@ function recordsBase(projectId: string, collectionSlug: string): string {
   return `${collectionsBase(projectId)}/${encodeURIComponent(collectionSlug)}/records`
 }
 
+function pipelineEventsBase(projectId: string, collectionSlug: string): string {
+  return `${collectionsBase(projectId)}/${encodeURIComponent(collectionSlug)}/events`
+}
+
+// Shape the resolved --file/--data payload into the ingest body the Pipeline
+// endpoint expects. Accepts, in order of convenience:
+//   - an array            → { events: [...] }
+//   - an { event }/{ events } envelope (optionally with dedupeKeys) → sent as-is
+//   - any other object    → a single { event: {...} }
+// `--dedupe-keys a,b` is merged in unless the envelope already carries it.
+function buildIngestBody(payload: unknown, dedupeKeys?: string[]): Record<string, unknown> {
+  let body: Record<string, unknown>
+  if (Array.isArray(payload)) {
+    body = { events: payload }
+  } else if (payload && typeof payload === 'object' && ('event' in payload || 'events' in payload)) {
+    body = { ...(payload as Record<string, unknown>) }
+  } else if (payload && typeof payload === 'object') {
+    body = { event: payload }
+  } else {
+    throw new Error('Pipeline event payload must be a JSON object or array of objects.')
+  }
+  if (dedupeKeys && dedupeKeys.length > 0 && body.dedupeKeys === undefined) {
+    body.dedupeKeys = dedupeKeys
+  }
+  return body
+}
+
 async function listCollections(): Promise<void> {
   const ctx = await loadContext(SAWALA_BRAND)
   requireActiveOrg(ctx, SAWALA_BRAND)
@@ -391,6 +418,88 @@ export function createDatanaCommand(): Command {
     })
 
   datana.addCommand(record)
+
+  // ── pipeline (analytical plane) ─────────────────────────────────────────────
+  // Datana Pipeline is the append-only analytical plane (PLAN-datana-pipeline-
+  // analytical-plane): a pipeline collection reuses the same typed-field schema as
+  // an operational collection but its records are ingested as events, never
+  // updated/deleted and never draft/published. Events land in the Iceberg-on-R2
+  // archive (or, pre-beta, a D1 landing) rather than being served row-by-row.
+  const pipeline = new Command('pipeline').description(
+    'Datana Pipeline — the append-only analytical plane (create pipeline collections, push events).',
+  )
+
+  pipeline
+    .command('create')
+    .description(
+      'Create a pipeline (analytical) collection. Body: { name, fields[], slug? } via ' +
+        '--file or --data; flavor is forced to "pipeline" and visibility to private.',
+    )
+    .option('-f, --file <path>', "Read JSON body from path. Use '-' for stdin.")
+    .option('-d, --data <json>', 'Inline JSON body.')
+    .option('--dry-run', 'Validate and print the payload without writing.')
+    .action(async (opts: { file?: string; data?: string; dryRun?: boolean }) => {
+      const ctx = await loadContext(SAWALA_BRAND)
+      requireActiveOrg(ctx, SAWALA_BRAND)
+      requireActiveProject(ctx, SAWALA_BRAND)
+      const projectId = requireActiveProjectId(ctx, SAWALA_BRAND)
+
+      const input = await resolveInputPayload(opts)
+      if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+        throw new Error('A pipeline collection body must be a JSON object ({ name, fields[] }).')
+      }
+      // Force the analytical plane regardless of what the body says — this
+      // subcommand exists precisely to create pipeline collections.
+      const body: Record<string, unknown> = { ...(input as Record<string, unknown>), flavor: 'pipeline' }
+      if (opts.dryRun) {
+        process.stdout.write(JSON.stringify({ wouldSend: { method: 'POST', body } }, null, 2) + '\n')
+        return
+      }
+      const result = await apiFetch<unknown>(ctx, collectionsBase(projectId), { method: 'POST', body })
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n')
+    })
+
+  pipeline
+    .command('push <collectionSlug>')
+    .description(
+      'Ingest events into a pipeline collection. The --file/--data payload may be a ' +
+        'single event object, an array of events, or an { events, dedupeKeys } envelope.',
+    )
+    .option('-f, --file <path>', "Read JSON body from path. Use '-' for stdin.")
+    .option('-d, --data <json>', 'Inline JSON payload.')
+    .option(
+      '--dedupe-keys <fields>',
+      'Comma-separated field names composing the per-event natural key (at-most-once ingest).',
+    )
+    .option('--dry-run', 'Validate and print the payload without writing.')
+    .action(
+      async (
+        collectionSlug: string,
+        opts: { file?: string; data?: string; dedupeKeys?: string; dryRun?: boolean },
+      ) => {
+        const ctx = await loadContext(SAWALA_BRAND)
+        requireActiveOrg(ctx, SAWALA_BRAND)
+        requireActiveProject(ctx, SAWALA_BRAND)
+        const projectId = requireActiveProjectId(ctx, SAWALA_BRAND)
+
+        const dedupeKeys = opts.dedupeKeys
+          ? opts.dedupeKeys.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined
+        const payload = await resolveInputPayload(opts)
+        const body = buildIngestBody(payload, dedupeKeys)
+        if (opts.dryRun) {
+          process.stdout.write(JSON.stringify({ wouldSend: { method: 'POST', body } }, null, 2) + '\n')
+          return
+        }
+        const result = await apiFetch<unknown>(ctx, pipelineEventsBase(projectId, collectionSlug), {
+          method: 'POST',
+          body,
+        })
+        process.stdout.write(JSON.stringify(result, null, 2) + '\n')
+      },
+    )
+
+  datana.addCommand(pipeline)
 
   return datana
 }
