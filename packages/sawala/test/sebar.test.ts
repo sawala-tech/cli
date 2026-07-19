@@ -227,3 +227,116 @@ describe('sawala sebar inbound address', () => {
     expect(init.method).toBe('DELETE')
   })
 })
+
+const BROADCASTS = `${API_BASE}/cli/sebar/broadcasts`
+
+describe('sawala sebar broadcast', () => {
+  it('create --dry-run prints the payload and performs no write', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({}))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await run(
+      'sebar',
+      'broadcast',
+      'create',
+      '--data',
+      JSON.stringify({ templateId: 't1', name: 'June', recipients: [{ email: 'a@b.com' }] }),
+      '--dry-run',
+    )
+    cap.restore()
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(JSON.parse(cap.lines.join(''))).toEqual({
+      wouldSend: {
+        method: 'POST',
+        path: '/cli/sebar/broadcasts',
+        body: { templateId: 't1', name: 'June', recipients: [{ email: 'a@b.com' }] },
+      },
+    })
+  })
+
+  it('create POSTs the body to the CLI-only surface (no projectId in the path)', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ broadcastId: 'bc1', totalCount: 1, queuedCount: 1, suppressedCount: 0 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await run(
+      'sebar',
+      'broadcast',
+      'create',
+      '-d',
+      JSON.stringify({ templateId: 't1', name: 'June', recipients: [{ email: 'a@b.com' }] }),
+    )
+    cap.restore()
+
+    const [url, init] = lastCall(fetchMock)
+    expect(url).toBe(BROADCASTS)
+    expect(url).not.toContain('proj_01default')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(String(init.body))).toEqual({
+      templateId: 't1',
+      name: 'June',
+      recipients: [{ email: 'a@b.com' }],
+    })
+    // project scope is carried as a header for the gateway to resolve
+    const headers = init.headers as Record<string, string>
+    expect(headers['x-project-id']).toBe('default')
+  })
+
+  it('list GETs the campaigns and prints terse columns', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        items: [
+          {
+            id: 'bc_1',
+            name: 'June newsletter',
+            status: 'sending',
+            totalCount: 50,
+            deliveredCount: 12,
+            suppressedCount: 1,
+            unsubscribedCount: 0,
+            createdAt: '2026-07-18T00:00:00Z',
+            createdByName: 'Ada',
+          },
+        ],
+        pagination: { limit: 100, hasMore: false, nextCursor: null },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await run('sebar', 'broadcast', 'list')
+    cap.restore()
+
+    const [url, init] = lastCall(fetchMock)
+    expect(url).toBe(`${BROADCASTS}?limit=100`)
+    expect(init.method ?? 'GET').toBe('GET')
+    const out = cap.lines.join('')
+    expect(out).toContain('bc_1')
+    expect(out).toContain('sending')
+    expect(out).toContain('12/50')
+    expect(out).toContain('June newsletter')
+  })
+
+  it('list passes a status filter through to the query string', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ items: [], pagination: {} }))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await run('sebar', 'broadcast', 'list', '--status', 'completed')
+    cap.restore()
+
+    const [url] = lastCall(fetchMock)
+    expect(url).toBe(`${BROADCASTS}?limit=100&status=completed`)
+  })
+
+  it('get fetches one campaign by id', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ id: 'bc_1', name: 'June', messages: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await run('sebar', 'broadcast', 'get', 'bc_1')
+    cap.restore()
+
+    const [url, init] = lastCall(fetchMock)
+    expect(url).toBe(`${BROADCASTS}/bc_1`)
+    expect(init.method ?? 'GET').toBe('GET')
+    expect(JSON.parse(cap.lines.join(''))).toMatchObject({ id: 'bc_1' })
+  })
+})

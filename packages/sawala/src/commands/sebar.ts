@@ -1,6 +1,12 @@
 import { Command } from 'commander'
-import { SAWALA_BRAND, apiFetch, loadContext, requireActiveOrg } from '@sawala/auth'
-import { confirmOrThrow } from '../lib/io'
+import {
+  SAWALA_BRAND,
+  apiFetch,
+  loadContext,
+  requireActiveOrg,
+  requireActiveProject,
+} from '@sawala/auth'
+import { confirmOrThrow, resolveInputPayload } from '../lib/io'
 
 /**
  * Sebar — Sawala's communication service (send/receive email + WhatsApp on an
@@ -68,6 +74,30 @@ async function orgCtx() {
   const ctx = await loadContext(SAWALA_BRAND)
   requireActiveOrg(ctx, SAWALA_BRAND)
   return ctx
+}
+
+// Broadcasts are PROJECT-scoped (unlike the org-level inbound domain). The
+// gateway injects the active project's id as x-project-id from the CLI token, so
+// requireActiveProject fails fast here when no project is selected.
+async function projectCtx() {
+  const ctx = await loadContext(SAWALA_BRAND)
+  requireActiveOrg(ctx, SAWALA_BRAND)
+  requireActiveProject(ctx, SAWALA_BRAND)
+  return ctx
+}
+
+const BROADCASTS = '/cli/sebar/broadcasts'
+
+interface Broadcast {
+  id: string
+  name: string
+  status: 'queued' | 'sending' | 'completed' | 'failed'
+  totalCount: number
+  deliveredCount: number
+  suppressedCount: number
+  unsubscribedCount: number
+  createdAt: string
+  createdByName: string | null
 }
 
 export function createSebarCommand(): Command {
@@ -203,5 +233,62 @@ export function createSebarCommand(): Command {
 
   inbound.addCommand(address)
   sebar.addCommand(inbound)
+
+  // ── broadcast (project-scoped) ─────────────────────────────────────────────
+  const broadcast = new Command('broadcast').description(
+    'Manage email broadcast campaigns (bulk marketing sends on the broadcast stream).',
+  )
+
+  broadcast
+    .command('create')
+    .description(
+      'Create a broadcast campaign. Body: ' +
+        '{ templateId, name, recipients: [{ email, name?, variables? }] }. The template ' +
+        'must be a broadcast-stream template. Provide the body via --file or --data.',
+    )
+    .option('-f, --file <path>', "Read JSON body from path. Use '-' for stdin.")
+    .option('-d, --data <json>', 'Inline JSON body.')
+    .option('--dry-run', 'Validate and print the payload without sending.')
+    .action(async (opts: { file?: string; data?: string; dryRun?: boolean }) => {
+      const ctx = await projectCtx()
+      const body = await resolveInputPayload(opts)
+      if (opts.dryRun) {
+        printJson({ wouldSend: { method: 'POST', path: BROADCASTS, body } })
+        return
+      }
+      const result = await apiFetch<unknown>(ctx, BROADCASTS, { method: 'POST', body })
+      printJson(result)
+    })
+
+  broadcast
+    .command('list')
+    .description('List broadcast campaigns in the active project (terse columns).')
+    .option('--status <queued|sending|completed|failed>', 'Filter by campaign status.')
+    .action(async (opts: { status?: string }) => {
+      const ctx = await projectCtx()
+      const params = new URLSearchParams({ limit: '100' })
+      if (opts.status) params.set('status', opts.status)
+      const result = await apiFetch<{ items: Broadcast[] }>(ctx, `${BROADCASTS}?${params.toString()}`)
+      if (result.items.length === 0) {
+        process.stdout.write('No broadcasts.\n')
+        return
+      }
+      for (const b of result.items) {
+        const progress = `${b.deliveredCount}/${b.totalCount}`
+        process.stdout.write(`${b.id.padEnd(28)} ${b.status.padEnd(10)} ${progress.padEnd(9)} ${b.name}\n`)
+      }
+    })
+
+  broadcast
+    .command('get <id>')
+    .description('Fetch one broadcast campaign — counters plus the first page of recipients.')
+    .action(async (id: string) => {
+      const ctx = await projectCtx()
+      const result = await apiFetch<unknown>(ctx, `${BROADCASTS}/${encodeURIComponent(id)}`)
+      printJson(result)
+    })
+
+  sebar.addCommand(broadcast)
+
   return sebar
 }
