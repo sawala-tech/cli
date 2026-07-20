@@ -498,6 +498,63 @@ describe('kodena_deploy_script', () => {
     expect(tool.annotations.destructiveHint).toBe(true)
     expect(tool.annotations.idempotentHint).toBe(true)
   })
+
+  it('requires exactly one of workerEntryPath / scriptContent / sourcePath', () => {
+    // none
+    expect(() => tool.parseInput({ slug: 's' })).toThrow(/exactly one/)
+    // two at once
+    expect(() =>
+      tool.parseInput({ slug: 's', workerEntryPath: '/x', scriptContent: 'export default {}' }),
+    ).toThrow(/exactly one/)
+  })
+
+  it('code mode: POSTs kind:code with raw (non-base64) source from scriptContent', async () => {
+    const mock = mockFetch({ status: 200, body: { tenant_subdomain: 'tool-acme' } })
+    const src = 'export default { async fetch() { return new Response("ok") } }'
+
+    await tool.handle(
+      tool.parseInput({ slug: 'my-tool', scriptContent: src, vars: { LOG_LEVEL: 'info' } }),
+      ctx,
+    )
+
+    const [url, init] = mock.mock.calls[0] as unknown as [string, { method: string; body: string }]
+    expect(url).toBe('https://api.sawala.cloud/kodena/scripts/my-tool/deploy')
+    const body = JSON.parse(init.body)
+    expect(body.kind).toBe('code')
+    // Raw text, not base64 — the source must round-trip verbatim.
+    expect(body.script_content).toBe(src)
+    expect(body.assets).toBeUndefined()
+    expect(body.vars).toEqual({ LOG_LEVEL: 'info' })
+  })
+
+  it('code mode: reads sourcePath from disk as UTF-8', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kodena-mcp-code-'))
+    const srcPath = join(dir, 'tool.mjs')
+    const src = 'export default { fetch() { return new Response("hi") } }'
+    writeFileSync(srcPath, src)
+
+    const mock = mockFetch({ status: 200, body: {} })
+    await tool.handle(tool.parseInput({ slug: 'my-tool', sourcePath: srcPath }), ctx)
+
+    const [, init] = mock.mock.calls[0] as unknown as [string, { body: string }]
+    const body = JSON.parse(init.body)
+    expect(body.kind).toBe('code')
+    expect(body.script_content).toBe(src)
+  })
+
+  it('code dry-run returns a code summary without calling fetch', async () => {
+    const mock = vi.fn()
+    vi.stubGlobal('fetch', mock)
+    const result = (await tool.handle(
+      tool.parseInput({ slug: 'my-tool', scriptContent: 'export default {}', dryRun: true }),
+      ctx,
+    )) as { dryRun: boolean; bundle: { kind: string; workerBytes: number } }
+
+    expect(mock).not.toHaveBeenCalled()
+    expect(result.dryRun).toBe(true)
+    expect(result.bundle.kind).toBe('code')
+    expect(result.bundle.workerBytes).toBeGreaterThan(0)
+  })
 })
 
 describe('kodena_set_custom_domain', () => {

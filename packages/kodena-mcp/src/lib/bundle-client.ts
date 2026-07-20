@@ -10,4 +10,4 @@ export {
   validateVars,
   walkAssets,
 } from '../../../kodena/src/lib/bundle'
-export type { AssetFile, BundleStats, WorkerBundle } from '../../../kodena/src/lib/bundle'
+export type { AssetFile, BundleStats, WorkerBundle, CodeBundle } from '../../../kodena/src/lib/bundle'
