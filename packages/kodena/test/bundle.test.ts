@@ -9,6 +9,7 @@ import {
   validateVars,
   walkAssets,
   type WorkerBundle,
+  type CodeBundle,
 } from '../src/lib/bundle'
 
 let dir: string
@@ -148,5 +149,18 @@ describe('summarise', () => {
     expect(s.workerBytes).toBe(0)
     expect(s.assetCount).toBe(1)
     expect(s.assetsTotalBytes).toBe(5)
+  })
+
+  it('reports raw UTF-8 byte count and no assets for a code bundle', () => {
+    // kind:code sends source as raw text, so workerBytes is the UTF-8 length —
+    // NOT a base64 decode. A multibyte char proves it is not counting chars.
+    const bundle: CodeBundle = {
+      kind: 'code',
+      script_content: 'export default {} // €',
+    }
+    const s = summarise(bundle)
+    expect(s.workerBytes).toBe(Buffer.byteLength(bundle.script_content, 'utf8'))
+    expect(s.assetCount).toBe(0)
+    expect(s.assetsTotalBytes).toBe(0)
   })
 })

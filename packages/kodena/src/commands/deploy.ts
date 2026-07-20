@@ -18,8 +18,12 @@ import {
   validateVars,
   walkAssets,
   type WorkerBundle,
+  type CodeBundle,
   type DeployBundle,
 } from '../lib/bundle'
+
+// A directly-authored Worker module is capped like a worker-bundle's entry.
+const CODE_MODULE_MAX_BYTES = 10 * 1024 * 1024
 import {
   assertTokenScope,
   loadContext,
@@ -41,6 +45,7 @@ interface DeployOptions {
   dryRun?: boolean
   build?: boolean
   static?: boolean
+  code?: string
 }
 
 interface DeployResponse {
@@ -51,7 +56,10 @@ interface DeployResponse {
 
 export function createDeployCommand(): Command {
   return new Command('deploy')
-    .description('Upload a worker-bundle, or a pure static site (--static), to Kodena.')
+    .description(
+      'Upload a worker-bundle, a pure static site (--static), or a single ' +
+        'directly-authored Worker module (--code <file>) to Kodena.',
+    )
     .option('--slug <name>', "Override kodena.json's script slug.")
     .option('--org <slug>', 'Override the active org for this command only.')
     .option('--project <slug>', 'Override the active project for this command only.')
@@ -101,6 +109,12 @@ export function createDeployCommand(): Command {
       '--no-static',
       'Force a worker-bundle deploy even if kodena.json sets `build.static: true`.',
     )
+    .option(
+      '--code <file>',
+      'Deploy a single directly-authored Worker module (kind:code) from this ' +
+        'source file. Skips build + static/worker-bundle auto-detection. ' +
+        'Source round-trips (readable back via `kodena env`/the dashboard editor).',
+    )
     .action(async (options: DeployOptions) => {
       const ctx = await loadContext({
         token: options.token,
@@ -132,8 +146,11 @@ export function createDeployCommand(): Command {
 
       const { workerEntry, assetsDir } = resolveBundlePaths(configPath, config)
 
+      // A --code deploy is a single hand-written module: no build, no static
+      // detection. The build step is only meaningful for the worker-bundle path.
       const shouldBuild =
-        options.build !== undefined ? options.build : Boolean(config.build?.runByDefault)
+        !options.code &&
+        (options.build !== undefined ? options.build : Boolean(config.build?.runByDefault))
       if (shouldBuild) {
         const command = config.build?.command ?? DEFAULT_BUILD_COMMAND
         const projectDir = dirname(configPath)
@@ -165,48 +182,66 @@ export function createDeployCommand(): Command {
       const compatibilityDate = options.compatDate ?? config.compatibilityDate
 
       process.stdout.write(`→ Reading kodena.json at ${configPath} (script: ${slug})\n`)
-      // Static vs worker-bundle: explicit flag wins; else kodena.json
-      // build.static; else auto-detect — a missing worker entry means "static".
-      let isStatic: boolean
-      if (options.static !== undefined) {
-        isStatic = options.static
-      } else if (config.build?.static !== undefined) {
-        isStatic = config.build.static
-      } else {
-        isStatic = !(await fileExists(workerEntry))
-        if (isStatic) {
-          process.stdout.write(
-            `→ No worker entry at ${workerEntry}; deploying as a static site (kind:assets).\n`,
-          )
-        }
-      }
 
       let bundle: DeployBundle
-      if (isStatic) {
-        const staticDir = resolveStaticAssetsDir(configPath, config)
-        process.stdout.write(`→ Reading static assets: ${staticDir}\n`)
-        const assets = await walkAssets(staticDir)
-        if (vars && Object.keys(vars).length > 0) {
-          process.stdout.write('! Ignoring vars — static (kind:assets) deploys have no worker.\n')
-        }
-        if (secrets && Object.keys(secrets).length > 0) {
-          process.stdout.write('! Ignoring secrets — static (kind:assets) deploys have no worker.\n')
-        }
+      if (options.code) {
+        // Directly-authored single-module Worker. Source is sent as raw UTF-8
+        // text (not base64), matching the backend's `codeDeployBody`. Compat
+        // flags/date are a worker-bundle concept and have no effect here.
+        process.stdout.write(`→ Reading code module: ${options.code}\n`)
+        const source = await readCodeModule(options.code)
         if ((compatibilityFlags && compatibilityFlags.length > 0) || compatibilityDate) {
-          process.stdout.write('! Ignoring compatibility flags/date — static deploys have no worker.\n')
+          process.stdout.write(
+            '! Ignoring compatibility flags/date — kind:code modules do not take them.\n',
+          )
         }
-        bundle = { kind: 'assets', assets }
+        const cb: CodeBundle = { kind: 'code', script_content: source }
+        if (vars && Object.keys(vars).length > 0) cb.vars = vars
+        if (secrets && Object.keys(secrets).length > 0) cb.secrets = secrets
+        bundle = cb
       } else {
-        process.stdout.write(`→ Reading worker entry: ${workerEntry}\n`)
-        const worker = await readWorkerEntry(workerEntry)
-        process.stdout.write(`→ Reading assets: ${assetsDir}\n`)
-        const assets = await walkAssets(assetsDir)
-        const wb: WorkerBundle = { kind: 'worker-bundle', scriptContent: worker.content, assets }
-        if (vars && Object.keys(vars).length > 0) wb.vars = vars
-        if (secrets && Object.keys(secrets).length > 0) wb.secrets = secrets
-        if (compatibilityFlags && compatibilityFlags.length > 0) wb.compatibilityFlags = compatibilityFlags
-        if (compatibilityDate) wb.compatibilityDate = compatibilityDate
-        bundle = wb
+        // Static vs worker-bundle: explicit flag wins; else kodena.json
+        // build.static; else auto-detect — a missing worker entry means "static".
+        let isStatic: boolean
+        if (options.static !== undefined) {
+          isStatic = options.static
+        } else if (config.build?.static !== undefined) {
+          isStatic = config.build.static
+        } else {
+          isStatic = !(await fileExists(workerEntry))
+          if (isStatic) {
+            process.stdout.write(
+              `→ No worker entry at ${workerEntry}; deploying as a static site (kind:assets).\n`,
+            )
+          }
+        }
+
+        if (isStatic) {
+          const staticDir = resolveStaticAssetsDir(configPath, config)
+          process.stdout.write(`→ Reading static assets: ${staticDir}\n`)
+          const assets = await walkAssets(staticDir)
+          if (vars && Object.keys(vars).length > 0) {
+            process.stdout.write('! Ignoring vars — static (kind:assets) deploys have no worker.\n')
+          }
+          if (secrets && Object.keys(secrets).length > 0) {
+            process.stdout.write('! Ignoring secrets — static (kind:assets) deploys have no worker.\n')
+          }
+          if ((compatibilityFlags && compatibilityFlags.length > 0) || compatibilityDate) {
+            process.stdout.write('! Ignoring compatibility flags/date — static deploys have no worker.\n')
+          }
+          bundle = { kind: 'assets', assets }
+        } else {
+          process.stdout.write(`→ Reading worker entry: ${workerEntry}\n`)
+          const worker = await readWorkerEntry(workerEntry)
+          process.stdout.write(`→ Reading assets: ${assetsDir}\n`)
+          const assets = await walkAssets(assetsDir)
+          const wb: WorkerBundle = { kind: 'worker-bundle', scriptContent: worker.content, assets }
+          if (vars && Object.keys(vars).length > 0) wb.vars = vars
+          if (secrets && Object.keys(secrets).length > 0) wb.secrets = secrets
+          if (compatibilityFlags && compatibilityFlags.length > 0) wb.compatibilityFlags = compatibilityFlags
+          if (compatibilityDate) wb.compatibilityDate = compatibilityDate
+          bundle = wb
+        }
       }
 
       const stats = summarise(bundle)
@@ -215,6 +250,8 @@ export function createDeployCommand(): Command {
           `✓ Bundle ready: worker ${humanBytes(stats.workerBytes)}, ` +
             `${stats.assetCount} assets (${humanBytes(stats.assetsTotalBytes)} total)\n`,
         )
+      } else if (bundle.kind === 'code') {
+        process.stdout.write(`✓ Code module ready: ${humanBytes(stats.workerBytes)}\n`)
       } else {
         process.stdout.write(
           `✓ Bundle ready: static — ${stats.assetCount} assets (${humanBytes(stats.assetsTotalBytes)} total)\n`,
@@ -222,7 +259,7 @@ export function createDeployCommand(): Command {
       }
 
       // Names only — a secret value is never printed.
-      if (bundle.kind === 'worker-bundle' && bundle.secrets) {
+      if ((bundle.kind === 'worker-bundle' || bundle.kind === 'code') && bundle.secrets) {
         process.stdout.write(`  Secrets: ${Object.keys(bundle.secrets).join(', ')}\n`)
       }
 
@@ -358,6 +395,15 @@ function redactBundle(bundle: DeployBundle): unknown {
   if (bundle.kind === 'assets') {
     return { kind: bundle.kind, scriptContent: '<none — static>', assets }
   }
+  if (bundle.kind === 'code') {
+    return {
+      kind: bundle.kind,
+      scriptContent: `<source elided, ${humanBytes(stats.workerBytes)}>`,
+      vars: bundle.vars,
+      // Names only — secret VALUES must never appear in the dry-run transcript.
+      secrets: bundle.secrets ? Object.keys(bundle.secrets) : undefined,
+    }
+  }
   return {
     kind: bundle.kind,
     scriptContent: `<base64 elided, ${humanBytes(stats.workerBytes)} decoded>`,
@@ -368,6 +414,27 @@ function redactBundle(bundle: DeployBundle): unknown {
     compatibilityFlags: bundle.compatibilityFlags,
     compatibilityDate: bundle.compatibilityDate,
   }
+}
+
+/**
+ * Read a `--code` source file as UTF-8 text (kind:code sends raw source, not
+ * base64). Throws a clean message if the file is missing or over the 10 MiB cap.
+ */
+async function readCodeModule(path: string): Promise<string> {
+  let buf: Buffer
+  try {
+    buf = await fs.readFile(path)
+  } catch (err) {
+    throw new Error(`Cannot read code module at ${path}: ${(err as Error).message}`)
+  }
+  if (buf.byteLength > CODE_MODULE_MAX_BYTES) {
+    throw new Error(`Code module is ${buf.byteLength} bytes; max ${CODE_MODULE_MAX_BYTES} (10 MiB).`)
+  }
+  const source = buf.toString('utf8')
+  if (source.trim().length === 0) {
+    throw new Error(`Code module at ${path} is empty.`)
+  }
+  return source
 }
 
 /** True if a file exists and is readable. Used to auto-detect static deploys

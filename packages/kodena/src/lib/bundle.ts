@@ -36,7 +36,21 @@ export interface AssetsBundle {
   assets: AssetFile[]
 }
 
-export type DeployBundle = WorkerBundle | AssetsBundle
+/**
+ * A single directly-authored Worker module. Unlike a worker-bundle, the source
+ * is sent as raw UTF-8 text in `script_content` (not base64) and there are no
+ * accompanying assets — matching the backend's `codeDeployBody`. This is the
+ * only kind whose source round-trips (readable back via `GET /scripts/:slug`).
+ */
+export interface CodeBundle {
+  kind: 'code'
+  script_content: string
+  vars?: Record<string, string>
+  // Write-only secret_text bindings; never persisted in cleartext, never echoed.
+  secrets?: Record<string, string>
+}
+
+export type DeployBundle = WorkerBundle | AssetsBundle | CodeBundle
 
 export interface BundleStats {
   workerBytes: number
@@ -148,8 +162,16 @@ function validateBindingMap(map: Record<string, string> | undefined, label: stri
 }
 
 /** Summarise a bundle for the CLI's progress output. A static (assets) bundle
- *  has no worker, so its worker byte count is 0. */
+ *  has no worker, so its worker byte count is 0. A code bundle carries its
+ *  source as raw UTF-8 text (not base64) and has no assets. */
 export function summarise(bundle: DeployBundle): BundleStats {
+  if (bundle.kind === 'code') {
+    return {
+      workerBytes: Buffer.byteLength(bundle.script_content, 'utf8'),
+      assetCount: 0,
+      assetsTotalBytes: 0,
+    }
+  }
   return {
     workerBytes: bundle.kind === 'worker-bundle' ? base64DecodedLength(bundle.scriptContent) : 0,
     assetCount: bundle.assets.length,
