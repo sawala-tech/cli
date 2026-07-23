@@ -314,7 +314,7 @@ export function createTugasnaCommand(): Command {
 
   item
     .command('create <boardId>')
-    .description('Create an item on a board. Body: { title, description?, statusId?, assignees?, startDate?, dueDate? }.')
+    .description('Create an item on a board. Body: { title, description?, statusId?, assignees?, startDate?, dueDate? }. Dates are epoch-ms numbers, not date strings.')
     .option('-f, --file <path>', "Read JSON body from path. Use '-' for stdin.")
     .option('-d, --data <json>', 'Inline JSON body.')
     .option('--dry-run', 'Validate and print the payload without writing.')
@@ -330,7 +330,7 @@ export function createTugasnaCommand(): Command {
 
   item
     .command('update <boardId> <itemId>')
-    .description('Update an item (PATCH). Body: any subset of the item fields.')
+    .description('Update an item (PATCH). Body: any subset of { title, description, startDate, dueDate }. Dates are epoch-ms numbers (or null to clear).')
     .option('-f, --file <path>', "Read JSON body from path. Use '-' for stdin.")
     .option('-d, --data <json>', 'Inline JSON body.')
     .option('--dry-run', 'Validate and print the payload without writing.')
@@ -370,7 +370,7 @@ export function createTugasnaCommand(): Command {
 
   item
     .command('move <boardId> <itemId>')
-    .description('Move/reorder an item within or across statuses. Body: { statusId?, position? }.')
+    .description('Move/reorder an item within or across statuses. Body: { statusId, position } (both required; position is a 0-based index).')
     .option('-f, --file <path>', "Read JSON body from path. Use '-' for stdin.")
     .option('-d, --data <json>', 'Inline JSON body.')
     .option('--dry-run', 'Validate and print the payload without writing.')
@@ -467,7 +467,7 @@ export function createTugasnaCommand(): Command {
 
   backlog
     .command('place <itemId>')
-    .description('Place a backlog item onto a board. Body: { boardId, statusId?, position? }.')
+    .description('Place a backlog item onto a board. Body: { boardId, statusId, position? } (boardId and statusId required).')
     .option('-f, --file <path>', "Read JSON body from path. Use '-' for stdin.")
     .option('-d, --data <json>', 'Inline JSON body.')
     .option('--dry-run', 'Validate and print the payload without writing.')
@@ -518,7 +518,7 @@ export function createTugasnaCommand(): Command {
 
   comment
     .command('create <itemId>')
-    .description('Add a comment to an item. Body: { body } (the comment text).')
+    .description('Add a comment to an item. Body: { text } (the comment text; add { parentId } to reply).')
     .option('-f, --file <path>', "Read JSON body from path. Use '-' for stdin.")
     .option('-d, --data <json>', 'Inline JSON body.')
     .option('--dry-run', 'Validate and print the payload without writing.')
@@ -534,7 +534,7 @@ export function createTugasnaCommand(): Command {
 
   comment
     .command('update <itemId> <commentId>')
-    .description('Edit a comment (PATCH). Body: { body }.')
+    .description('Edit a comment (PATCH). Body: { text }.')
     .option('-f, --file <path>', "Read JSON body from path. Use '-' for stdin.")
     .option('-d, --data <json>', 'Inline JSON body.')
     .option('--dry-run', 'Validate and print the payload without writing.')
