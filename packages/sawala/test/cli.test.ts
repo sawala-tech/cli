@@ -55,5 +55,6 @@ describe('sawala CLI smoke', () => {
     expect(names).toContain('formulir')
     expect(names).toContain('berkasna')
     expect(names).toContain('datana')
+    expect(names).toContain('tugasna')
   })
 })
