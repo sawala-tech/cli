@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import pkg from '../package.json'
+import { createAkunaCommand } from './commands/akuna'
 import { createAjenaCommand } from './commands/ajena'
 import { createBerkasnaCommand } from './commands/berkasna'
 import { createDatanaCommand } from './commands/datana'
@@ -34,6 +35,7 @@ export function createProgram(): Command {
   program.addCommand(createAjenaCommand())
   program.addCommand(createSebarCommand())
   program.addCommand(createTugasnaCommand())
+  program.addCommand(createAkunaCommand())
 
   return program
 }
