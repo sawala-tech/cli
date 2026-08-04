@@ -106,6 +106,26 @@ a secret with no rebuild. `--var` and `--secret` are both repeatable and take
 pass the flag twice rather than a comma-separated string. `--compat-date` takes
 `YYYY-MM-DD`.
 
+## MCP equivalents
+
+`@sawala/kodena-mcp` exposes 21 tools. Prefer them for reads and for scripted
+mutation; the CLI still owns `deploy` itself.
+
+| Area | MCP tools |
+|---|---|
+| identity, scope | `kodena_whoami`, `kodena_list_orgs`, `kodena_list_projects`, `kodena_get_org_handle`, `kodena_set_org_handle` |
+| scripts | `kodena_list_scripts`, `kodena_get_script`, `kodena_create_script`, `kodena_update_script`, `kodena_deploy_script`, `kodena_rehydrate_script`, `kodena_delete_script` |
+| assets | `kodena_get_asset`, `kodena_patch_assets`, `kodena_rebuild_assets_manifest` |
+| domains | `kodena_set_custom_domain`, `kodena_get_custom_domain_status`, `kodena_remove_custom_domain` |
+| logs, secrets, slugs | `kodena_get_script_logs`, `kodena_list_secrets`, `kodena_check_slug_available` |
+
+`kodena_list_secrets` returns names only — secret values are never readable
+back, by design. `kodena_check_slug_available` before `kodena_create_script`
+saves a round-trip on a taken slug.
+
+Session commands (`kodena login`, `kodena logout`) have no MCP equivalent:
+authentication is a terminal action by design.
+
 ## Environment traps
 
 - **Wrangler needs Node v22.** The repo's `engines` allows v20 and the default

@@ -73,9 +73,18 @@ Two products have no deeper skill because they hold no traps:
 - **Formulir** — `sawala formulir form list|get <slugOrId>`,
   `sawala formulir submission list <formSlugOrId>|get <formSlugOrId> <submissionId>`.
   Project-scoped. **Read-only from the CLI: there is no create, update, or
-  delete.** Do not invent one.
+  delete.** Do not invent one. MCP: `sawala_formulir_list_forms`,
+  `sawala_formulir_get_form`, `sawala_formulir_list_submissions`,
+  `sawala_formulir_get_submission`.
 - **Berkasna** — `sawala berkasna asset list|get <id>` (id is a ULID).
   **Org-scoped, not project-scoped**, and likewise **read-only from the CLI.**
+  MCP: `sawala_berkasna_list_assets`, `sawala_berkasna_get_asset`.
+
+Session and scope commands: `sawala login`, `sawala logout`, `sawala whoami`,
+`sawala org list|use`, `sawala project list|use`. Their MCP counterparts are
+`sawala_whoami`, `sawala_list_orgs`, and `sawala_list_projects` — all
+read-only, so an agent can orient itself over MCP alone but **cannot** change
+scope or log in that way. That asymmetry is deliberate.
 
 Discover the rest at runtime rather than trusting this page if it looks stale:
 `sawala --help`, `sawala <group> --help`, `kodena --help`, and for MCP the

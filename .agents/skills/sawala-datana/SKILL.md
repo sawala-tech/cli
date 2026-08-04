@@ -124,6 +124,30 @@ matches nothing at all.
 25, but the CLI actually sends `limit=100` when the flag is omitted. Pass it
 explicitly if the number matters.
 
+## MCP equivalents
+
+Prefer these over shelling out — the input is schema-validated and the output
+is structured JSON.
+
+| CLI | MCP tool |
+|---|---|
+| `collection list` | `sawala_datana_list_collections` |
+| `collection get` | `sawala_datana_get_collection` |
+| `collection create` | `sawala_datana_create_collection` |
+| `collection update` | `sawala_datana_update_collection` |
+| `record list` | `sawala_datana_list_records` |
+| `record get` | `sawala_datana_get_record` |
+| `record create` | `sawala_datana_create_record` |
+| `record update` | `sawala_datana_update_record` |
+| `record publish` | `sawala_datana_publish_record` |
+| `record unpublish` | `sawala_datana_unpublish_record` |
+| `record delete` | `sawala_datana_delete_record` |
+
+The pipeline commands have **no** MCP equivalent — use the CLI for those.
+
+Note the MCP tools have no `--dry-run`. When a write is one you generated
+rather than the user dictated, prefer the CLI so you can show the payload first.
+
 ## Pipeline — the append-only analytical plane
 
     sawala datana pipeline create -f model.json

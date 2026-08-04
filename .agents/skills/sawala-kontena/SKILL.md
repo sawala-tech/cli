@@ -110,3 +110,30 @@ On a single schema, the same call upserts that locale's entry instead.
 `entry update` is a PUT replacement too: pull, edit, push. To change only the
 lifecycle use `publish` / `unpublish`, which do not resend the body and so
 cannot clobber field values.
+
+## MCP equivalents
+
+Prefer these over shelling out — the input is schema-validated and the output
+is structured JSON.
+
+| CLI | MCP tool |
+|---|---|
+| `schema list` | `sawala_kontena_list_schemas` |
+| `schema get` | `sawala_kontena_get_schema` |
+| `schema create` | `sawala_kontena_create_schema` |
+| `schema update` | `sawala_kontena_update_schema` |
+| `schema delete` | `sawala_kontena_delete_schema` |
+| `entry list` | `sawala_kontena_list_entries` |
+| `entry get` | `sawala_kontena_get_entry` |
+| `entry create` | `sawala_kontena_create_entry` |
+| `entry update` | `sawala_kontena_update_entry` |
+| `entry publish` | `sawala_kontena_publish_entry` |
+| `entry unpublish` | `sawala_kontena_unpublish_entry` |
+| `entry delete` | `sawala_kontena_delete_entry` |
+
+`sawala_kontena_create_entry` fetches the schema first and routes single vs
+collection for you, so you address both the same way — the same convenience
+the CLI provides.
+
+The MCP tools have no `--dry-run`. When a write is one you generated rather
+than the user dictated, prefer the CLI so you can show the payload first.
