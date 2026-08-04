@@ -100,11 +100,33 @@ async function fetchSchemaType(
   projectId: string,
   schemaSlug: string,
 ): Promise<'single' | 'collection'> {
-  const schema = await apiFetch<SchemaGetResponse>(
-    ctx,
-    `/cli/kontena/projects/${encodeURIComponent(projectId)}/schemas/${encodeURIComponent(schemaSlug)}`,
-  )
-  const t = schema.type
+  const base = `/cli/kontena/projects/${encodeURIComponent(projectId)}/schemas`
+
+  // The schema-get route resolves ULIDs only, but the content routes this
+  // guards resolve the schema by SLUG. So the argument that makes the write
+  // work is exactly the one that 404s here — without the fallback below, every
+  // `entry` subcommand is unusable. Mirrors `schema get`, except that the list
+  // rows already carry `type`, so no second GET is needed.
+  try {
+    const schema = await apiFetch<SchemaGetResponse>(
+      ctx,
+      `${base}/${encodeURIComponent(schemaSlug)}`,
+    )
+    return assertSchemaType(schema.type, schemaSlug)
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 404) throw err
+  }
+
+  const listResult = await apiFetch<SchemaListResponse>(ctx, `${base}?limit=100`)
+  const match = listResult.data.find((s) => s.slug === schemaSlug)
+  if (!match) {
+    const available = listResult.data.map((s) => s.slug).join(', ') || '(none)'
+    throw new Error(`Schema '${schemaSlug}' not found. Available slugs: ${available}.`)
+  }
+  return assertSchemaType(match.type, schemaSlug)
+}
+
+function assertSchemaType(t: string, schemaSlug: string): 'single' | 'collection' {
   if (t !== 'single' && t !== 'collection') {
     throw new Error(`Schema '${schemaSlug}' has unexpected type '${t}'.`)
   }
