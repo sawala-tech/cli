@@ -88,11 +88,16 @@ do not repeat them.
 
 - Bodies come from `-f, --file <path>` (`-` means stdin) or `-d, --data <json>`.
   Passing both is an error.
-- **`update` is a PUT replacement.** Adding one field means: `get` the current
-  document, append to the object you got back, and send the whole thing. Never
-  send a body containing only the new field — it deletes everything else.
+- **`update` semantics differ per product — check before you write.**
+  - **Kontena and Datana: PUT replacement.** Adding one field means `get` the
+    current document, append to what you got back, and send the whole thing.
+    A body containing only the new field deletes everything else.
+  - **Tugasna: PATCH.** Send only the keys you want changed.
+  - When unsure, run the command with `--dry-run` and read the `method` in the
+    printed `wouldSend`.
 - Kontena and Datana have a draft/published lifecycle with explicit
   `publish` / `unpublish` verbs. Creating leaves a draft unless `--publish`.
+  Tugasna has no such lifecycle — an item's state is its status column.
 - Reads print pretty JSON. Lists print terse padded columns.
 - A non-zero exit means the message on stderr is the error.
 
