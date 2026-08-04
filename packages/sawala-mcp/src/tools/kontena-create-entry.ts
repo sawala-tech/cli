@@ -1,12 +1,8 @@
 import { z } from 'zod'
 import { apiFetch } from '../lib/api-client'
+import { resolveSchemaType } from '../lib/kontena-schema'
 import type { CliContext } from '../lib/auth'
 import { zodParser, type ToolDefinition, type ToolInputSchema } from './types'
-
-interface SchemaTypeResponse {
-  type: string
-  [k: string]: unknown
-}
 
 const inputZod = z
   .object({
@@ -61,11 +57,7 @@ export const kontenaCreateEntryTool: ToolDefinition<Input> = {
     const projectId = ctx.activeProjectId
     const payload: Record<string, unknown> = { ...input.entry }
     if (input.publish) payload.status = 'published'
-    const schemaInfo = await apiFetch<SchemaTypeResponse>(
-      ctx,
-      `/cli/kontena/projects/${encodeURIComponent(projectId)}/schemas/${encodeURIComponent(input.schemaSlug)}`,
-    )
-    const subpath = schemaInfo.type === 'single' ? 'single' : 'collection'
+    const subpath = await resolveSchemaType(ctx, projectId, input.schemaSlug)
     return await apiFetch<unknown>(
       ctx,
       `/cli/kontena/projects/${encodeURIComponent(projectId)}/content/${subpath}/${encodeURIComponent(input.schemaSlug)}`,

@@ -1,12 +1,8 @@
 import { z } from 'zod'
 import { apiFetch } from '../lib/api-client'
+import { resolveSchemaType } from '../lib/kontena-schema'
 import type { CliContext } from '../lib/auth'
 import { zodParser, type ToolDefinition, type ToolInputSchema } from './types'
-
-interface SchemaTypeResponse {
-  type: string
-  [k: string]: unknown
-}
 
 const inputZod = z
   .object({
@@ -68,12 +64,9 @@ export const kontenaDeleteEntryTool: ToolDefinition<Input> = {
       )
     }
     const projectId = ctx.activeProjectId
-    const schemaInfo = await apiFetch<SchemaTypeResponse>(
-      ctx,
-      `/cli/kontena/projects/${encodeURIComponent(projectId)}/schemas/${encodeURIComponent(input.schemaSlug)}`,
-    )
+    const schemaType = await resolveSchemaType(ctx, projectId, input.schemaSlug)
     const url =
-      schemaInfo.type === 'single'
+      schemaType === 'single'
         ? `/cli/kontena/projects/${encodeURIComponent(projectId)}/content/single/${encodeURIComponent(input.schemaSlug)}` +
           (input.locale ? `?locale=${encodeURIComponent(input.locale)}` : '')
         : `/cli/kontena/projects/${encodeURIComponent(projectId)}/content/collection/${encodeURIComponent(input.schemaSlug)}/${encodeURIComponent(input.slugOrId)}`

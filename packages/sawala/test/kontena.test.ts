@@ -559,6 +559,115 @@ describe('sawala kontena entry create / update / delete', () => {
     )
   })
 
+  // The schema-get route resolves ULIDs only, while the content route resolves
+  // the schema by slug — so the identifier that makes the write succeed is the
+  // one that 404s on the lookup. Without the list-and-match fallback, every
+  // `entry` subcommand is unusable against a schema named by slug.
+  it('create falls back to matching by slug when schema-get 404s', async () => {
+    const entry = { slug: 'hello', locale: 'en', data: { title: 'Hi' } }
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/posts')) return jsonResponse({ error: 'NOT_FOUND' }, 404)
+      if (url.endsWith('/schemas?limit=100')) {
+        return jsonResponse({
+          data: [
+            { id: 'sch_9', documentId: 'doc_9', slug: 'other', name: 'Other', type: 'single' },
+            { id: 'sch_1', documentId: 'doc_1', slug: 'posts', name: 'Posts', type: 'collection' },
+          ],
+          meta: { pagination: { limit: 100, nextCursor: null, hasMore: false } },
+        })
+      }
+      return jsonResponse({ id: 'ent_1', ...entry }, 201)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'entry',
+      'create',
+      'posts',
+      '--data',
+      JSON.stringify(entry),
+    ])
+    cap.restore()
+
+    // 404'd get, then the list, then the write — and the write still addresses
+    // the schema by SLUG, which is what the content route resolves.
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const [url3, init3] = fetchMock.mock.calls[2] as unknown as [string, RequestInit]
+    expect(url3).toBe(
+      `${API_BASE}/cli/kontena/projects/${PROJECT_ID}/content/collection/posts`,
+    )
+    expect(init3.method).toBe('POST')
+  })
+
+  it('create routes a single-type schema correctly via the slug fallback', async () => {
+    const entry = { locale: 'en', data: { siteTitle: 'Sawala' } }
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/site-settings')) return jsonResponse({ error: 'NOT_FOUND' }, 404)
+      if (url.endsWith('/schemas?limit=100')) {
+        return jsonResponse({
+          data: [
+            {
+              id: 'sch_2',
+              documentId: 'doc_2',
+              slug: 'site-settings',
+              name: 'Site Settings',
+              type: 'single',
+            },
+          ],
+          meta: { pagination: { limit: 100, nextCursor: null, hasMore: false } },
+        })
+      }
+      return jsonResponse({ id: 'ent_1', ...entry }, 201)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const cap = captureStdout()
+    await createProgram().parseAsync([
+      'node',
+      'sawala',
+      'kontena',
+      'entry',
+      'create',
+      'site-settings',
+      '--data',
+      JSON.stringify(entry),
+    ])
+    cap.restore()
+    const [url3] = fetchMock.mock.calls[2] as unknown as [string, RequestInit]
+    expect(url3).toBe(
+      `${API_BASE}/cli/kontena/projects/${PROJECT_ID}/content/single/site-settings`,
+    )
+  })
+
+  it('create reports the available slugs when the schema is genuinely absent', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/nope')) return jsonResponse({ error: 'NOT_FOUND' }, 404)
+      return jsonResponse({
+        data: [
+          { id: 'sch_1', documentId: 'doc_1', slug: 'posts', name: 'Posts', type: 'collection' },
+        ],
+        meta: { pagination: { limit: 100, nextCursor: null, hasMore: false } },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(
+      createProgram().parseAsync([
+        'node',
+        'sawala',
+        'kontena',
+        'entry',
+        'create',
+        'nope',
+        '--data',
+        JSON.stringify({ slug: 'x', locale: 'en', data: {} }),
+      ]),
+    ).rejects.toThrow(/Schema 'nope' not found\. Available slugs: posts\./)
+    // Never reached the write.
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('create --publish injects status=published into the body', async () => {
     const entry = { slug: 'hello', locale: 'en', data: { title: 'Hi' } }
     const fetchMock = vi.fn(async (url: string) => {

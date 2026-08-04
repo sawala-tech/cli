@@ -74,6 +74,55 @@ describe('sawala_kontena_create_entry', () => {
     )
   })
 
+  // The schema-get route resolves ULIDs only, while the content route resolves
+  // the schema by slug — so the identifier that makes the write succeed is the
+  // one that 404s on the lookup. Without the fallback, this tool is unusable.
+  it('falls back to listing and matching by slug when schema-get 404s', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/posts')) return jsonResponse({ error: 'NOT_FOUND' }, 404)
+      if (url.endsWith('/schemas?limit=100')) {
+        return jsonResponse({
+          data: [
+            { id: 'sch_9', slug: 'other', name: 'Other', type: 'single' },
+            { id: 'sch_1', slug: 'posts', name: 'Posts', type: 'collection' },
+          ],
+          meta: { pagination: { limit: 100, nextCursor: null, hasMore: false } },
+        })
+      }
+      return jsonResponse({ id: 'ent_1' }, 201)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const out = await kontenaCreateEntryTool.handle(
+      { schemaSlug: 'posts', entry: { slug: 'hello', locale: 'en', data: { x: 1 } } },
+      baseCtx,
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const [url3, init3] = fetchMock.mock.calls[2] as unknown as [string, RequestInit]
+    expect(url3).toBe(
+      'https://api.sawala.cloud/cli/kontena/projects/proj_01abc/content/collection/posts',
+    )
+    expect(init3.method).toBe('POST')
+    expect(out).toEqual({ id: 'ent_1' })
+  })
+
+  it('reports the available slugs when the schema is genuinely absent', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/schemas/nope')) return jsonResponse({ error: 'NOT_FOUND' }, 404)
+      return jsonResponse({
+        data: [{ id: 'sch_1', slug: 'posts', name: 'Posts', type: 'collection' }],
+        meta: { pagination: { limit: 100, nextCursor: null, hasMore: false } },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(
+      kontenaCreateEntryTool.handle(
+        { schemaSlug: 'nope', entry: { slug: 'x', locale: 'en', data: {} } },
+        baseCtx,
+      ),
+    ).rejects.toThrow(/Schema 'nope' not found\. Available slugs: posts\./)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it("publish:true injects status='published' into the POST body", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.endsWith('/schemas/posts')) {
