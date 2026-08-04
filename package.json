@@ -12,7 +12,8 @@
     "test": "npm --workspaces --if-present run test",
     "typecheck": "npm --workspaces --if-present run typecheck",
     "lint": "npm --workspaces --if-present run lint",
-    "release": "changeset publish"
+    "release": "changeset publish",
+    "check:skills": "node scripts/check-skills-coverage.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",

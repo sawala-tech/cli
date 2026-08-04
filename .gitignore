@@ -7,3 +7,6 @@ dist/
 coverage/
 *.tsbuildinfo
 *.tgz
+
+# Local agent worktrees (see .claude/worktrees/)
+.claude/worktrees/
