@@ -1,6 +1,6 @@
 ---
 name: sawala-cli
-description: Orientation for driving Sawala Cloud from an agent — the `sawala` and `kodena` CLIs and the `@sawala/mcp` / `@sawala/kodena-mcp` MCP servers. Use when a task mentions Sawala, Kodena, Kontena, Datana, Ajena, Formulir, Berkasna, Sebar, Tugasna, or Akuna; when deciding whether to shell out or call an MCP tool; or when a Sawala command fails with an auth, org, or project error.
+description: Orientation for driving Sawala Cloud from an agent — the `sawala` and `kodena` CLIs and the `@sawala/mcp` / `@sawala/kodena-mcp` MCP servers. Use when a task mentions Sawala, Kodena, Kontena, Datana, Ajena, Formulir, Berkasna, Sebar, Tugasna, or Akuna; when listing or fetching uploaded files, assets, or media; when reading forms or form submissions; when deciding whether to shell out or call an MCP tool; or when a Sawala command fails with an auth, org, or project error.
 metadata:
   sawala-cli-version: "0.13.0"
 ---

@@ -43,9 +43,29 @@ describe('resolveTargetDirs', () => {
   const cwd = '/repo'
   const home = '/home/dev'
 
-  it('maps agents and codex to the same .agents/skills', () => {
+  it('maps agents and codex to the same .agents/skills at project level', () => {
     expect(resolveTargetDirs({ targets: ['agents'], cwd, home })).toEqual(['/repo/.agents/skills'])
     expect(resolveTargetDirs({ targets: ['codex'], cwd, home })).toEqual(['/repo/.agents/skills'])
+  })
+
+  // Sources disagree on Codex's personal skills directory (~/.agents/skills per
+  // its docs, ~/.codex/skills in the wild) and we could not verify which is
+  // live. Writing both is the safe choice: picking one and being wrong means a
+  // --global install lands where nothing reads it.
+  it('writes both candidate Codex directories under --global', () => {
+    expect(resolveTargetDirs({ targets: ['codex'], global: true, cwd, home })).toEqual([
+      '/home/dev/.agents/skills',
+      '/home/dev/.codex/skills',
+    ])
+  })
+
+  it('includes the Codex home directory in a global `all`, but not a project `all`', () => {
+    expect(resolveTargetDirs({ targets: ['all'], global: true, cwd, home })).toContain(
+      '/home/dev/.codex/skills',
+    )
+    expect(resolveTargetDirs({ targets: ['all'], cwd, home })).not.toContain(
+      '/repo/.codex/skills',
+    )
   })
 
   it('maps claude and copilot to their own project directories', () => {
