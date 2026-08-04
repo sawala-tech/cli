@@ -119,8 +119,17 @@ export function resolveTargetDirs(opts: {
   for (const t of targets) {
     switch (t) {
       case 'agents':
+        dirs.add(join(base, '.agents', 'skills'))
+        break
       case 'codex':
         dirs.add(join(base, '.agents', 'skills'))
+        // Sources disagree on where Codex reads *personal* skills: its own docs
+        // say ~/.agents/skills, while installs in the wild put them in
+        // ~/.codex/skills ($CODEX_HOME/skills). We could not verify which is
+        // live. Writing both is cheap and cannot fail silently; picking one and
+        // being wrong means --global installs into a directory nothing reads.
+        // Project-level is not in doubt — .agents/skills is well attested.
+        if (isGlobal) dirs.add(join(home, '.codex', 'skills'))
         break
       case 'claude':
         dirs.add(join(base, '.claude', 'skills'))
@@ -133,6 +142,7 @@ export function resolveTargetDirs(opts: {
         dirs.add(join(base, '.agents', 'skills'))
         dirs.add(join(base, '.claude', 'skills'))
         dirs.add(isGlobal ? join(home, '.copilot', 'skills') : join(cwd, '.github', 'skills'))
+        if (isGlobal) dirs.add(join(home, '.codex', 'skills'))
         break
       default: {
         const bad: never = t
