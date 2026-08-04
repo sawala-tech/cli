@@ -11,6 +11,7 @@ import { createLogoutCommand } from './commands/logout'
 import { createOrgCommand } from './commands/org'
 import { createProjectCommand } from './commands/project'
 import { createSebarCommand } from './commands/sebar'
+import { createSkillsCommand } from './commands/skills'
 import { createTugasnaCommand } from './commands/tugasna'
 import { createWhoamiCommand } from './commands/whoami'
 
@@ -36,6 +37,7 @@ export function createProgram(): Command {
   program.addCommand(createSebarCommand())
   program.addCommand(createTugasnaCommand())
   program.addCommand(createAkunaCommand())
+  program.addCommand(createSkillsCommand())
 
   return program
 }
