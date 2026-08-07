@@ -7,6 +7,7 @@ import {
   requireActiveProject,
   requireActiveProjectId,
 } from '@sawala/auth'
+import { readFile, writeFile } from 'node:fs/promises'
 import { confirmOrThrow, resolveInputPayload } from '../lib/io'
 
 /**
@@ -42,6 +43,14 @@ interface ItemRow {
   [k: string]: unknown
 }
 
+interface CanvasRow {
+  id: string
+  title: string
+  content?: string
+  revision: number
+  [k: string]: unknown
+}
+
 interface TagRow {
   id: string
   name: string
@@ -66,6 +75,31 @@ function statusesBase(projectId: string, boardId: string): string {
 
 function commentsBase(projectId: string, itemId: string): string {
   return `${projectBase(projectId)}/items/${encodeURIComponent(itemId)}/comments`
+}
+
+function canvasesBase(projectId: string): string {
+  return `${projectBase(projectId)}/canvases`
+}
+
+function canvasBase(projectId: string, canvasId: string): string {
+  return `${canvasesBase(projectId)}/${encodeURIComponent(canvasId)}`
+}
+
+function itemCanvasesBase(projectId: string, itemId: string): string {
+  return `${projectBase(projectId)}/items/${encodeURIComponent(itemId)}/canvases`
+}
+
+function canvasFoldersBase(projectId: string): string {
+  return `${projectBase(projectId)}/canvas-folders`
+}
+
+/** Read raw UTF-8 text from stdin — the markdown counterpart to readJsonInput. */
+async function readStdinText(): Promise<string> {
+  const chunks: Buffer[] = []
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : (chunk as Buffer))
+  }
+  return Buffer.concat(chunks).toString('utf8')
 }
 
 function printJson(value: unknown): void {
@@ -573,6 +607,313 @@ export function createTugasnaCommand(): Command {
     })
 
   tugasna.addCommand(comment)
+
+  // ── canvas (project-scoped documents) ────────────────────────────────────
+  //
+  // A canvas is a long-form markdown document that belongs to the PROJECT, not
+  // to a task: tasks and boards reference one, and it outlives all of them.
+  //
+  // `pull` and `push` are the only commands in this file whose payload is RAW
+  // TEXT rather than JSON, and that is the whole point of storing a canvas as
+  // markdown — it can be pulled to a .md file, edited with ordinary tools (or
+  // read by a coding agent as a specification), and pushed back.
+  const canvas = new Command('canvas').description(
+    'Project documents (list, pull/push markdown, link to tasks, history, folders).',
+  )
+
+  canvas
+    .command('list')
+    .description("List the project's documents.")
+    .option('--q <text>', 'Filter by title.')
+    .option('--folder <folderId>', "Folder id, or 'root' for unfiled documents.")
+    .option('--archived', 'Include archived documents.')
+    .option('--limit <n>', 'Maximum rows (default 50, max 200).')
+    .action(async (opts: { q?: string; folder?: string; archived?: boolean; limit?: string }) => {
+      const { ctx, projectId } = await projectContext()
+      const params = new URLSearchParams()
+      if (opts.q) params.set('q', opts.q)
+      if (opts.folder) params.set('folderId', opts.folder)
+      if (opts.archived) params.set('includeArchived', 'true')
+      if (opts.limit) params.set('limit', opts.limit)
+      const qs = params.toString()
+      printJson(await apiFetch<unknown>(ctx, `${canvasesBase(projectId)}${qs ? `?${qs}` : ''}`))
+    })
+
+  canvas
+    .command('create')
+    .description('Create a document. Body: { title?, content?, folderId? }.')
+    .option('--title <title>', 'Shorthand for { title }.')
+    .option('-f, --file <path>', "Read JSON body from path. Use '-' for stdin.")
+    .option('-d, --data <json>', 'Inline JSON body.')
+    .option('--dry-run', 'Validate and print the payload without writing.')
+    .action(async (opts: { title?: string; file?: string; data?: string; dryRun?: boolean }) => {
+      const { ctx, projectId } = await projectContext()
+      const body =
+        opts.file || opts.data
+          ? await resolveInputPayload(opts)
+          : { title: opts.title ?? 'Untitled' }
+      if (opts.dryRun) {
+        printJson({ wouldSend: { method: 'POST', body } })
+        return
+      }
+      printJson(await apiFetch<unknown>(ctx, canvasesBase(projectId), { method: 'POST', body }))
+    })
+
+  canvas
+    .command('get <canvasId>')
+    .description('Print one document as JSON, including its content.')
+    .action(async (canvasId: string) => {
+      const { ctx, projectId } = await projectContext()
+      printJson(await apiFetch<unknown>(ctx, canvasBase(projectId, canvasId)))
+    })
+
+  canvas
+    .command('pull <canvasId>')
+    .description('Write a document to a markdown file (or stdout when -o is omitted).')
+    .option('-o, --out <path>', 'Destination file. Omit to write to stdout.')
+    .action(async (canvasId: string, opts: { out?: string }) => {
+      const { ctx, projectId } = await projectContext()
+      const doc = await apiFetch<CanvasRow>(ctx, canvasBase(projectId, canvasId))
+      const content = doc.content ?? ''
+      if (opts.out) {
+        await writeFile(opts.out, content, 'utf8')
+      } else {
+        process.stdout.write(content.endsWith('\n') ? content : `${content}\n`)
+      }
+      // Metadata goes to STDERR so a pipeline capturing stdout receives only
+      // the document itself.
+      process.stderr.write(`${doc.id}  rev ${doc.revision}  ${doc.title}\n`)
+    })
+
+  canvas
+    .command('push <canvasId>')
+    .description('Write a markdown file back to a document (PUT).')
+    .option('-f, --file <path>', "Markdown file to send. Use '-' for stdin.")
+    .option('--title <title>', 'Also rename the document.')
+    .option('--revision <n>', 'Base revision. Omit to read the current one first.')
+    .option('--force', 'Overwrite unconditionally, ignoring concurrent edits.')
+    .option('--dry-run', 'Validate and print the payload without writing.')
+    .action(
+      async (
+        canvasId: string,
+        opts: {
+          file?: string
+          title?: string
+          revision?: string
+          force?: boolean
+          dryRun?: boolean
+        },
+      ) => {
+        const { ctx, projectId } = await projectContext()
+        if (!opts.file) throw new Error('Provide the markdown to push with -f <path> (or -f -).')
+        // Raw text, deliberately NOT resolveInputPayload — that parses JSON.
+        const content = opts.file === '-' ? await readStdinText() : await readFile(opts.file, 'utf8')
+
+        let expectedRevision: number | undefined
+        if (!opts.force) {
+          if (opts.revision !== undefined) {
+            expectedRevision = Number(opts.revision)
+          } else {
+            // Read the current revision so an unattended push is still guarded
+            // against a concurrent edit rather than silently clobbering it.
+            const current = await apiFetch<CanvasRow>(ctx, canvasBase(projectId, canvasId))
+            expectedRevision = current.revision
+          }
+        }
+        const body = {
+          content,
+          ...(opts.title ? { title: opts.title } : {}),
+          ...(expectedRevision !== undefined ? { expectedRevision } : {}),
+        }
+        if (opts.dryRun) {
+          printJson({ wouldSend: { method: 'PUT', body } })
+          return
+        }
+        printJson(
+          await apiFetch<unknown>(ctx, canvasBase(projectId, canvasId), { method: 'PUT', body }),
+        )
+      },
+    )
+
+  canvas
+    .command('move <canvasId>')
+    .description('File a document into a folder.')
+    .option('--folder <folderId>', 'Target folder id.')
+    .option('--root', 'Move to the project root instead.')
+    .action(async (canvasId: string, opts: { folder?: string; root?: boolean }) => {
+      const { ctx, projectId } = await projectContext()
+      if (!opts.folder && !opts.root) throw new Error('Pass --folder <folderId> or --root.')
+      const body = { folderId: opts.root ? null : opts.folder }
+      printJson(
+        await apiFetch<unknown>(ctx, canvasBase(projectId, canvasId), { method: 'PATCH', body }),
+      )
+    })
+
+  canvas
+    .command('link <itemId> <canvasId>')
+    .description('Reference a document from a task.')
+    .action(async (itemId: string, canvasId: string) => {
+      const { ctx, projectId } = await projectContext()
+      printJson(
+        await apiFetch<unknown>(ctx, itemCanvasesBase(projectId, itemId), {
+          method: 'POST',
+          body: { canvasId },
+        }),
+      )
+    })
+
+  canvas
+    .command('unlink <itemId> <canvasId>')
+    .description("Remove a task's reference. The DOCUMENT IS NOT DELETED.")
+    .option('-y, --yes', 'Skip the confirmation prompt.')
+    .action(async (itemId: string, canvasId: string, opts: { yes?: boolean }) => {
+      const { ctx, projectId } = await projectContext()
+      if (!opts.yes) {
+        await confirmOrThrow(
+          `Remove the reference to '${canvasId}' from item '${itemId}'? The document stays in the project.`,
+        )
+      }
+      printJson(
+        await apiFetch<unknown>(
+          ctx,
+          `${itemCanvasesBase(projectId, itemId)}/${encodeURIComponent(canvasId)}`,
+          { method: 'DELETE' },
+        ),
+      )
+    })
+
+  canvas
+    .command('links <canvasId>')
+    .description('Show which tasks and boards reference a document.')
+    .action(async (canvasId: string) => {
+      const { ctx, projectId } = await projectContext()
+      printJson(await apiFetch<unknown>(ctx, `${canvasBase(projectId, canvasId)}/links`))
+    })
+
+  canvas
+    .command('history <canvasId>')
+    .description('List past revisions, newest first.')
+    .action(async (canvasId: string) => {
+      const { ctx, projectId } = await projectContext()
+      printJson(await apiFetch<unknown>(ctx, `${canvasBase(projectId, canvasId)}/versions`))
+    })
+
+  canvas
+    .command('restore <canvasId> <versionId>')
+    .description('Restore a past revision. Written as a NEW revision; history is kept.')
+    .option('-y, --yes', 'Skip the confirmation prompt.')
+    .action(async (canvasId: string, versionId: string, opts: { yes?: boolean }) => {
+      const { ctx, projectId } = await projectContext()
+      if (!opts.yes) {
+        await confirmOrThrow(`Restore version '${versionId}' of canvas '${canvasId}'?`)
+      }
+      printJson(
+        await apiFetch<unknown>(
+          ctx,
+          `${canvasBase(projectId, canvasId)}/versions/${encodeURIComponent(versionId)}/restore`,
+          { method: 'POST', body: {} },
+        ),
+      )
+    })
+
+  canvas
+    .command('delete <canvasId>')
+    .description('Delete a document, its history AND every reference to it.')
+    .option('-y, --yes', 'Skip the confirmation prompt.')
+    .action(async (canvasId: string, opts: { yes?: boolean }) => {
+      const { ctx, projectId } = await projectContext()
+      if (!opts.yes) {
+        // Say how many references would go with it — deleting a document is
+        // not the same as unlinking one, and the prompt should show that.
+        let referenced = ''
+        try {
+          const links = await apiFetch<{ items?: unknown[]; boards?: unknown[] }>(
+            ctx,
+            `${canvasBase(projectId, canvasId)}/links`,
+          )
+          const n = (links.items?.length ?? 0) + (links.boards?.length ?? 0)
+          if (n > 0) referenced = ` It is referenced ${n} time(s); those references go too.`
+        } catch {
+          // A failed lookup must not block the confirmation itself.
+        }
+        await confirmOrThrow(`Delete canvas '${canvasId}' and all its history?${referenced}`)
+      }
+      printJson(await apiFetch<unknown>(ctx, canvasBase(projectId, canvasId), { method: 'DELETE' }))
+    })
+
+  canvas
+    .command('folders')
+    .description("Print the project's folder tree, flat, as JSON.")
+    .action(async () => {
+      const { ctx, projectId } = await projectContext()
+      printJson(await apiFetch<unknown>(ctx, canvasFoldersBase(projectId)))
+    })
+
+  const folder = new Command('folder').description('Manage canvas folders (max 3 levels).')
+
+  folder
+    .command('create <name>')
+    .description('Create a folder.')
+    .option('--parent <folderId>', 'Nest inside this folder.')
+    .action(async (name: string, opts: { parent?: string }) => {
+      const { ctx, projectId } = await projectContext()
+      const body = { name, ...(opts.parent ? { parentId: opts.parent } : {}) }
+      printJson(await apiFetch<unknown>(ctx, canvasFoldersBase(projectId), { method: 'POST', body }))
+    })
+
+  folder
+    .command('rename <folderId> <name>')
+    .description('Rename a folder.')
+    .action(async (folderId: string, name: string) => {
+      const { ctx, projectId } = await projectContext()
+      printJson(
+        await apiFetch<unknown>(
+          ctx,
+          `${canvasFoldersBase(projectId)}/${encodeURIComponent(folderId)}`,
+          { method: 'PATCH', body: { name } },
+        ),
+      )
+    })
+
+  folder
+    .command('move <folderId>')
+    .description('Re-parent a folder. Refused on a cycle or past 3 levels.')
+    .option('--parent <folderId>', 'New parent.')
+    .option('--root', 'Move to the project root instead.')
+    .action(async (folderId: string, opts: { parent?: string; root?: boolean }) => {
+      const { ctx, projectId } = await projectContext()
+      if (!opts.parent && !opts.root) throw new Error('Pass --parent <folderId> or --root.')
+      printJson(
+        await apiFetch<unknown>(
+          ctx,
+          `${canvasFoldersBase(projectId)}/${encodeURIComponent(folderId)}`,
+          { method: 'PATCH', body: { parentId: opts.root ? null : opts.parent } },
+        ),
+      )
+    })
+
+  folder
+    .command('delete <folderId>')
+    .description('Delete a folder. Its contents MOVE UP one level; nothing is deleted.')
+    .option('-y, --yes', 'Skip the confirmation prompt.')
+    .action(async (folderId: string, opts: { yes?: boolean }) => {
+      const { ctx, projectId } = await projectContext()
+      if (!opts.yes) {
+        await confirmOrThrow(
+          `Delete folder '${folderId}'? Documents and sub-folders inside it move up one level; nothing is deleted.`,
+        )
+      }
+      printJson(
+        await apiFetch<unknown>(
+          ctx,
+          `${canvasFoldersBase(projectId)}/${encodeURIComponent(folderId)}`,
+          { method: 'DELETE' },
+        ),
+      )
+    })
+
+  canvas.addCommand(folder)
+  tugasna.addCommand(canvas)
 
   // ── tags (project-scoped, read) ──────────────────────────────────────────
   const tag = new Command('tag').description('Read Tugasna project tags.')
