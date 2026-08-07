@@ -1,6 +1,6 @@
 ---
 name: sawala-tugasna
-description: Manage Tugasna work tracking from the Sawala CLI — boards, statuses, items, comments, tags, the timeline, and the backlog. Use when creating or updating a board or task, moving an item between columns, reordering statuses, commenting on work, or working with backlog items and their placement.
+description: Manage Tugasna work tracking from the Sawala CLI — boards, statuses, items, comments, tags, the timeline, the backlog, and canvases (project documents). Use when creating or updating a board or task, moving an item between columns, reordering statuses, commenting on work, working with backlog items and their placement, or reading/writing a canvas as markdown — including pulling a ticket's specification to a file and pushing it back.
 metadata:
   sawala-cli-version: "0.13.0"
 ---
@@ -90,3 +90,30 @@ items carrying start/due dates.
 Backlog items are project-level and belong to no board until placed. See
 [the backlog model](references/backlog.md) for placement, sub-items, and the
 difference between `item` and `backlog` commands addressing the same item.
+
+## Canvases (project documents)
+
+A **canvas** is a long-form markdown document that belongs to the **project**,
+not to a task. Tasks and boards *reference* one, and it outlives all of them —
+so unlinking a canvas from a ticket never deletes the document.
+
+    sawala tugasna canvas list [--q <text>] [--folder root|<folderId>] [--archived]
+    sawala tugasna canvas create --title "Spec"
+    sawala tugasna canvas pull <canvasId> -o spec.md
+    sawala tugasna canvas push <canvasId> -f spec.md
+    sawala tugasna canvas link <itemId> <canvasId>
+    sawala tugasna canvas unlink <itemId> <canvasId> [-y]
+    sawala tugasna canvas history <canvasId>
+    sawala tugasna canvas folder create <name> [--parent <folderId>]
+
+`pull` and `push` are the only commands in this group whose payload is **raw
+markdown, not JSON** — that is the point of the format. `pull` writes only the
+document to stdout (metadata goes to stderr), so `canvas pull <id> > spec.md`
+is safe.
+
+`push` reads the current revision first and sends it as `expectedRevision`, so
+a concurrent edit is **refused rather than overwritten**. Pass `--force` only
+when you mean "mine wins"; there is no merge.
+
+See [the canvas model](references/canvas.md) for the pull/edit/push loop,
+many-to-many referencing, version history, and the three-level folder tree.
